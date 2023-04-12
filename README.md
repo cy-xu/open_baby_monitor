@@ -5,7 +5,9 @@ An open-source baby monitor that uses a stereo camera to provide a live video fe
 Goals:
  - A live video feed of the baby's crib
  - Tracks the baby's movement using both temporal and depth information
+ - Detects if the baby is in the crib and logs her sleep time and quality
  - Detects the baby's face and send an alert if the baby is face down
+ - Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
 
 DepthAI
 
@@ -30,3 +32,16 @@ gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 
 ### TODO:
  - [ ] An infrared camera to see in the dark would be nice
+
+
+### References:
+ -
+
+### License
+
+
+### Notes:
+
+Mac OS Catalina ssh issue: https://discussions.apple.com/thread/253932000
+In Terminal, type in and execute the following:
+sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
