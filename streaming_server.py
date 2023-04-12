@@ -1,8 +1,26 @@
+import os
 import cv2
 import numpy as np
 import depthai as dai
 from flask import Flask, Response, render_template, request
+from flask_httpauth import HTTPBasicAuth
 import atexit
+from dotenv import load_dotenv
+
+from img_utils import date_and_time
+
+load_dotenv()
+
+auth = HTTPBasicAuth()
+# Define your username and password here
+USER_DATA = {
+    os.getenv("FLASK_USERNAME"): os.getenv("FLASK_PASSWORD")
+}
+
+@auth.verify_password
+def verify_password(username, password):
+    if username in USER_DATA and USER_DATA[username] == password:
+        return username
 
 app = Flask(__name__)
 selected_camera = 1
@@ -20,8 +38,8 @@ class DepthAI:
         if DepthAI.device_rgb is not None:
             raise RuntimeError("This class is a singleton!")
         else:
-            DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_rgb_camera()
-            # DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_mono_camera()
+            # DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_rgb_camera()
+            DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_mono_camera()
             # DepthAI.device_mono, DepthAI.video_queue_mono = self._init_mono_camera()
             atexit.register(self._close_device)
 
@@ -87,6 +105,8 @@ class DepthAI:
 
 depthai_instance = DepthAI()
 
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+
 def gen_frames():
     global selected_camera
     device_rgb, video_queue_rgb = depthai_instance.get_device_rgb()
@@ -105,6 +125,18 @@ def gen_frames():
             continue
 
         frame = np.array(frame.getCvFrame())
+
+        # Apply CLAHE
+        frame = clahe.apply(frame)
+
+        # if frame is grayscale, convert to 3 channel for denoising
+        # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        # Apply Non-local Means Denoising
+        # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
+
+        # add date and time
+        frame = date_and_time(frame)
+
         # ret, buffer = cv2.imencode('.jpg', frame)
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
         frame = buffer.tobytes()
@@ -112,14 +144,17 @@ def gen_frames():
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/')
+@auth.login_required
 def index():
     return render_template('index.html')
 
 @app.route('/video_feed')
+@auth.login_required
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/switch_camera', methods=['POST'])
+@auth.login_required
 def switch_camera():
     global selected_camera
     camera = request.form.get('camera')

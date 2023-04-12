@@ -42,6 +42,10 @@ gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 
 ### Notes:
 
+user name and pin are saved in the environment variables (.env), add this file to .gitignore to avoid saving sensitive information in the code repository
+
+
+
 Mac OS Catalina ssh issue: https://discussions.apple.com/thread/253932000
 In Terminal, type in and execute the following:
 sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
