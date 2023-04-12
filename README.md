@@ -3,11 +3,11 @@
 An open-source baby monitor that uses a stereo camera to provide a live video feed of the baby's crib, so I can keep an eye on the little thing while working. I also want to track the baby's sleep and send out alerts if necessary.
 
 Goals:
- - A live video feed of the baby's crib
- - Tracks the baby's movement using both temporal and depth information
- - Detects if the baby is in the crib and logs her sleep time and quality
- - Detects the baby's face and send an alert if the baby is face down
- - Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
+ - [x] A live video feed of the baby's crib
+ - [ ] Tracks the baby's movement using both temporal and depth information
+ - [ ] Detects if the baby is in the crib and logs her sleep time and quality
+ - [ ] Detects the baby's face and send an alert if the baby is face down
+ - [ ] Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
 
 DepthAI
 
@@ -31,7 +31,7 @@ gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 
 
 ### TODO:
- - [ ] An infrared camera to see in the dark would be nice
+ - An infrared camera to see in the dark would be nice
 
 
 ### References:
