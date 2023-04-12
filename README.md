@@ -4,7 +4,8 @@ An open-source baby monitor that uses a stereo camera to provide a live video fe
 
 Goals:
  - [x] A live video feed of the baby's crib
- - [ ] Tracks the baby's movement using both temporal and depth information
+ - [x] Detects the baby's movement using temporal information
+ - [ ] Detects the baby's movement using depth information
  - [ ] Detects if the baby is in the crib and logs her sleep time and quality
  - [ ] Detects the baby's face and send an alert if the baby is face down
  - [ ] Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
@@ -31,7 +32,12 @@ gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 
 
 ### TODO:
- - An infrared camera to see in the dark would be nice
+ - [x] Password protect the web app (flask_httpauth)
+ - [ ] Add a button to take a picture
+ - [ ] Add a button to record a video
+ - [ ] An infrared camera for the dark would be nice
+ - [ ] 
+
 
 
 ### References:

@@ -2,12 +2,13 @@ import os
 import cv2
 import numpy as np
 import depthai as dai
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template, request, jsonify
 from flask_httpauth import HTTPBasicAuth
 import atexit
 from dotenv import load_dotenv
 
 from img_utils import date_and_time
+from motion_detection import BabyMotionDetector
 
 load_dotenv()
 
@@ -24,6 +25,9 @@ def verify_password(username, password):
 
 app = Flask(__name__)
 selected_camera = 1
+
+motion_detector = BabyMotionDetector(buffer_size=30, motion_threshold=0.8)
+is_baby_moving = False
 
 class DepthAI:
     # This code uses a Singleton pattern for the DepthAI class, which ensures only one instance of the device is created and shared among all requests. This should resolve the issue with multiple devices accessing the video feed.
@@ -111,6 +115,7 @@ def gen_frames():
     global selected_camera
     device_rgb, video_queue_rgb = depthai_instance.get_device_rgb()
     # device_mono, video_queue_mono = depthai_instance.get_device_mono()
+    global is_baby_moving
 
     while True:
         # if selected_camera == 1:
@@ -134,6 +139,9 @@ def gen_frames():
         # Apply Non-local Means Denoising
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
+        is_baby_moving, frame = motion_detector.is_baby_moving(frame)
+        # print(f'is baby moving: {is_baby_moving}')
+
         # add date and time
         frame = date_and_time(frame)
 
@@ -152,6 +160,10 @@ def index():
 @auth.login_required
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/moving_status')
+def moving_status():
+    return jsonify(is_moving=is_baby_moving)
 
 @app.route('/switch_camera', methods=['POST'])
 @auth.login_required
