@@ -27,17 +27,17 @@ python -m pip install -r requirements.txt
 
 ```bash
 python streaming_server.py
-gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
+./ngrok http 5000
+# gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 ```
-
 
 ### TODO:
  - [x] Password protect the web app (flask_httpauth)
+ - [x] Broadcast to the internet with ngrok
+ - [x] Multi-camera switching
  - [ ] Add a button to take a picture
  - [ ] Add a button to record a video
  - [ ] An infrared camera for the dark would be nice
- - [ ] 
-
 
 
 ### References:

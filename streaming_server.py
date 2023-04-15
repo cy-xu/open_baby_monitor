@@ -6,6 +6,7 @@ from flask import Flask, Response, render_template, request, jsonify
 from flask_httpauth import HTTPBasicAuth
 import atexit
 from dotenv import load_dotenv
+import queue
 
 from img_utils import date_and_time
 from motion_detection import BabyMotionDetector
@@ -25,87 +26,72 @@ def verify_password(username, password):
 
 app = Flask(__name__)
 selected_camera = 1
-
-motion_detector = BabyMotionDetector(buffer_size=30, motion_threshold=0.8)
+current_camera = 1
 is_baby_moving = False
+deteciton_buffer = 300
+motion_threshold = 0.5
 
 class DepthAI:
     # This code uses a Singleton pattern for the DepthAI class, which ensures only one instance of the device is created and shared among all requests. This should resolve the issue with multiple devices accessing the video feed.
 
-    device_rgb = None
-    video_queue_rgb = None
-
-    device_mono = None
-    video_queue_mono = None
-
     def __init__(self):
-        if DepthAI.device_rgb is not None:
-            raise RuntimeError("This class is a singleton!")
-        else:
-            # DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_rgb_camera()
-            DepthAI.device_rgb, DepthAI.video_queue_rgb = self._init_mono_camera()
-            # DepthAI.device_mono, DepthAI.video_queue_mono = self._init_mono_camera()
-            atexit.register(self._close_device)
+        self.pipeline = dai.Pipeline()
+        # create a queue as buffer for the frames
+        self.rgb_buffer = queue.Queue(maxsize=10)
+        self.left_buffer = queue.Queue(maxsize=10)
+
+        self._init_rgb_camera()
+        self._init_mono_camera()
+
+        self.device = dai.Device(self.pipeline, usb2Mode=True)
+
+        self.rgb_video_queue = self.device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
+        self.left_video_queue = self.device.getOutputQueue(name="left", maxSize=1, blocking=False)
+
+        atexit.register(self._close_device)
 
     def _close_device(self):
-        if DepthAI.device_rgb is not None:
-            DepthAI.device_rgb.close()
-        if DepthAI.device_mono is not None:
-            DepthAI.device_mono.close()
+        if self.device is not None:
+            self.device.close()
+
+    def create_mono(self, p, socket):
+        mono = p.create(dai.node.MonoCamera)
+        mono.setBoardSocket(socket)
+        mono.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
 
     def _init_rgb_camera(self):
-        pipeline = dai.Pipeline()
 
-        camRgb = pipeline.create(dai.node.ColorCamera)
-        camRgb.setFps(30)
+        camRgb = self.pipeline.create(dai.node.ColorCamera)
 
-        xoutVideo = pipeline.create(dai.node.XLinkOut)
-        xoutVideo.setStreamName("video")
-
+        camRgb.setFps(10)
         camRgb.setBoardSocket(dai.CameraBoardSocket.RGB)
         camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         camRgb.setVideoSize(1920, 1080)
-        # camRgb.setVideoSize(1280, 720)
 
-        xoutVideo.input.setBlocking(False)
-        xoutVideo.input.setQueueSize(1)
+        xoutRGB = self.pipeline.create(dai.node.XLinkOut)
+        xoutRGB.setStreamName("rgb")
 
-        camRgb.video.link(xoutVideo.input)
-
-        device = dai.Device(pipeline)
-        video_queue = device.getOutputQueue(name="video", maxSize=1, blocking=False)
-
-        return device, video_queue
+        camRgb.video.link(xoutRGB.input)
 
     def _init_mono_camera(self):
 
-        # Create pipeline
-        pipeline = dai.Pipeline()
-
         # Define sources and outputs
-        monoLeft = pipeline.create(dai.node.MonoCamera)
-        monoLeft.setFps(30)
-
-        xoutLeft = pipeline.create(dai.node.XLinkOut)
-        xoutLeft.setStreamName('left')
-
-        # Properties
+        monoLeft = self.pipeline.create(dai.node.MonoCamera)
         monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
         monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_720_P)
+        monoLeft.setFps(10)
+
+        xoutLeft = self.pipeline.create(dai.node.XLinkOut)
+        xoutLeft.setStreamName('left')
 
         # Linking
         monoLeft.out.link(xoutLeft.input)
 
-        device = dai.Device(pipeline)
-        video_queue = device.getOutputQueue(name="left", maxSize=4, blocking=False)
+    def get_rgb_queue(self):
+        return self.rgb_video_queue
 
-        return device, video_queue
-
-    def get_device_rgb(self):
-        return DepthAI.device_rgb, DepthAI.video_queue_rgb
-
-    def get_device_mono(self):
-        return DepthAI.device_mono, DepthAI.video_queue_mono
+    def get_left_queue(self):
+        return self.left_video_queue
 
 depthai_instance = DepthAI()
 
@@ -113,26 +99,40 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
 def gen_frames():
     global selected_camera
-    device_rgb, video_queue_rgb = depthai_instance.get_device_rgb()
-    # device_mono, video_queue_mono = depthai_instance.get_device_mono()
+    global current_camera
     global is_baby_moving
 
+    rgb_queue = depthai_instance.get_rgb_queue()
+    left_queue = depthai_instance.get_left_queue()
+
+    motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
+
     while True:
-        # if selected_camera == 1:
-        #     frame = video_queue_rgb.get()
-        # elif selected_camera == 2:
-        #     frame = video_queue_mono.get()
+        if selected_camera == 1:
+            videoIn = rgb_queue.get()
+            # videoIn = video_queue_rgb.get()
+            # video = device.getOutputQueue(name="rgb_video", maxSize=1, blocking=False)
+        elif selected_camera == 2:
+            videoIn = left_queue.get()
+        #     # video = device.getOutputQueue(name="left_video", maxSize=1, blocking=False)
+        else:
+            f"Camera 3 is not configured yet."
 
-        # frame = video_queue_rgb.get()
-        frame = video_queue_rgb.tryGet()
-
-        if frame is None:
+        if videoIn is None:
+            print("videoIn is None")
             continue
 
-        frame = np.array(frame.getCvFrame())
+        print(f'current camera: {current_camera}, selected camera: {selected_camera}')
+        if current_camera != selected_camera:
+            motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
+            is_baby_moving = False
+            current_camera = selected_camera
+            continue
+
+        frame = np.array(videoIn.getCvFrame())
 
         # Apply CLAHE
-        frame = clahe.apply(frame)
+        # frame = clahe.apply(frame)
 
         # if frame is grayscale, convert to 3 channel for denoising
         # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
@@ -145,7 +145,6 @@ def gen_frames():
         # add date and time
         frame = date_and_time(frame)
 
-        # ret, buffer = cv2.imencode('.jpg', frame)
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -172,6 +171,7 @@ def switch_camera():
     camera = request.form.get('camera')
     if camera:
         selected_camera = int(camera)
+        print(f'selected camera: {selected_camera}')
     return '', 204  # Return an empty response with a 204 No Content status
 
 if __name__ == '__main__':

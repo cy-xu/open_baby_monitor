@@ -17,13 +17,13 @@
 
         <div class="row justify-content-center mt-3" style="padding-top: 20px;">
             <div class="col-auto">
-                <button type="button" class="btn btn-primary">RGB Cam (白天彩色)</button>
+                <button id="rgb_cam" type="button" class="btn btn-primary">Day (白天)</button>
             </div>
             <div class="col-auto">
-                <button type="button" class="btn btn-primary">B&W Cam (晚上低光)</button>
+                <button id="left_cam" type="button" class="btn btn-primary">Night (低光)</button>
             </div>
             <div class="col-auto">
-                <button type="button" class="btn btn-primary">Camera 3</button>
+                <button id="depth_cam" type="button" class="btn btn-primary">Camera 3</button>
             </div>
         </div>
 
@@ -51,7 +51,7 @@
         .then(response => response.json())
         .then(data => {
             // print the JSON response in the console first
-            console.log(data);
+            // console.log(data);
             if (data.is_moving) {
                 document.body.style.backgroundColor = 'red';
             } else {
@@ -91,9 +91,13 @@
     // setInterval(updateMovingStatus, 1000);
     // });
 
-    document.querySelector('button:nth-of-type(1)').addEventListener('click', function() { switchCamera(1); });
-    document.querySelector('button:nth-of-type(2)').addEventListener('click', function() { switchCamera(2); });
-    document.querySelector('button:nth-of-type(3)').addEventListener('click', function() { switchCamera(3); });
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('rgb_cam').addEventListener('click', function() { switchCamera(1); });
+        document.getElementById('left_cam').addEventListener('click', function() { switchCamera(2); });
+        document.getElementById('depth_cam').addEventListener('click', function() { switchCamera(3); });
+    });
+
+
 
 </script>
 
