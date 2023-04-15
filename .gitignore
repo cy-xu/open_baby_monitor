@@ -1,6 +1,8 @@
 # user name and pin are saved in the environment variables
 .env
 
+flask_session
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

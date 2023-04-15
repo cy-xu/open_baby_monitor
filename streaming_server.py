@@ -141,6 +141,9 @@ def gen_frames(user_uuid):
 
         frame = np.array(videoIn.getCvFrame())
 
+        # rotate frame 90 degrees clockwise
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
         # Apply CLAHE
         # frame = clahe.apply(frame)
 

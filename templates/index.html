@@ -8,26 +8,27 @@
 </head>
 <body>
     <div class="container-fluid">
-
-        <div class="row" style="padding-top: 20px; padding-left: 10%; padding-right: 10%;">
-            <div class="col p-0">
-                <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid" alt="Video Stream">
+        <div class="row">
+            <div class="col-12 col-md-6 d-flex justify-content-center p-0">
+                <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch" alt="Video Stream">
+            </div>
+            <div class="col-12 col-md-6 d-flex align-items-center flex-column">
+                <div class="row justify-content-center mt-md-3 py-md-0 py-3">
+                    <div class="col-auto">
+                        <button id="rgb_cam" type="button" class="btn btn-primary btn-sm">Day (白天)</button>
+                    </div>
+                    <div class="col-auto">
+                        <button id="left_cam" type="button" class="btn btn-primary btn-sm">Night (低光)</button>
+                    </div>
+                    <div class="col-auto">
+                        <button id="depth_cam" type="button" class="btn btn-primary btn-sm">Camera 3</button>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <div class="row justify-content-center mt-3" style="padding-top: 20px;">
-            <div class="col-auto">
-                <button id="rgb_cam" type="button" class="btn btn-primary">Day (白天)</button>
-            </div>
-            <div class="col-auto">
-                <button id="left_cam" type="button" class="btn btn-primary">Night (低光)</button>
-            </div>
-            <div class="col-auto">
-                <button id="depth_cam" type="button" class="btn btn-primary">Camera 3</button>
-            </div>
-        </div>
-
     </div>
+    
+    
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
@@ -84,5 +85,15 @@
 
 
 </script>
+
+<style>
+    @media (min-width: 768px) {
+        .video-stretch {
+            height: 100vh;
+            object-fit: cover;
+            width: auto;
+        }
+    }
+</style>
 
 </html>
