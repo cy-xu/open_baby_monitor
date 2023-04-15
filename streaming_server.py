@@ -1,12 +1,15 @@
 import os
 import cv2
 import numpy as np
-import depthai as dai
-from flask import Flask, Response, render_template, request, jsonify
-from flask_httpauth import HTTPBasicAuth
+import uuid
+import time
 import atexit
 from dotenv import load_dotenv
-import queue
+
+import depthai as dai
+from flask import Flask, Response, render_template, request, jsonify, session
+from flask_session import Session
+from flask_httpauth import HTTPBasicAuth
 
 from img_utils import date_and_time
 from motion_detection import BabyMotionDetector
@@ -15,19 +18,22 @@ load_dotenv()
 
 auth = HTTPBasicAuth()
 # Define your username and password here
-USER_DATA = {
+USER_AUTH = {
     os.getenv("FLASK_USERNAME"): os.getenv("FLASK_PASSWORD")
 }
 
 @auth.verify_password
 def verify_password(username, password):
-    if username in USER_DATA and USER_DATA[username] == password:
+    if username in USER_AUTH and USER_AUTH[username] == password:
         return username
 
 app = Flask(__name__)
-selected_camera = 1
-current_camera = 1
-is_baby_moving = False
+app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")  # Set this to a secure random value
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+
+user_data = {}
+
 deteciton_buffer = 300
 motion_threshold = 0.5
 
@@ -36,9 +42,6 @@ class DepthAI:
 
     def __init__(self):
         self.pipeline = dai.Pipeline()
-        # create a queue as buffer for the frames
-        self.rgb_buffer = queue.Queue(maxsize=10)
-        self.left_buffer = queue.Queue(maxsize=10)
 
         self._init_rgb_camera()
         self._init_mono_camera()
@@ -97,17 +100,22 @@ depthai_instance = DepthAI()
 
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
-def gen_frames():
-    global selected_camera
-    global current_camera
-    global is_baby_moving
+def gen_frames(user_uuid):
+    global user_data
 
+    # Create a dictionary for the user in user_data if it doesn't exist
+    # if user_uuid not in user_data:
+    #     user_data[user_uuid] = {
+    #         "motion_detector": BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold),
+    #     }
+    
     rgb_queue = depthai_instance.get_rgb_queue()
     left_queue = depthai_instance.get_left_queue()
 
-    motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
-
     while True:
+        selected_camera = user_data[user_uuid]['selected_camera']
+        current_camera = user_data[user_uuid]['current_camera']
+
         if selected_camera == 1:
             videoIn = rgb_queue.get()
             # videoIn = video_queue_rgb.get()
@@ -125,8 +133,8 @@ def gen_frames():
         print(f'current camera: {current_camera}, selected camera: {selected_camera}')
         if current_camera != selected_camera:
             motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
-            is_baby_moving = False
-            current_camera = selected_camera
+            user_data[user_uuid]['is_baby_moving'] = False
+            user_data[user_uuid]['current_camera'] = selected_camera
             continue
 
         frame = np.array(videoIn.getCvFrame())
@@ -140,6 +148,7 @@ def gen_frames():
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
         is_baby_moving, frame = motion_detector.is_baby_moving(frame)
+        user_data[user_uuid]['is_baby_moving'] = is_baby_moving
         # print(f'is baby moving: {is_baby_moving}')
 
         # add date and time
@@ -150,6 +159,27 @@ def gen_frames():
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+def generate_uuid():
+    return str(uuid.uuid4())
+
+def set_user_uuid():
+    global user_data
+
+    # Generate a random code for each user session
+    new_uuid = generate_uuid()
+    session['user_uuid'] = new_uuid
+
+    motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
+
+    user_data[new_uuid] = {
+        "selected_camera": 1,
+        "current_camera": 1,
+        "is_baby_moving": False,
+        'motion_detector': motion_detector,
+    }
+
+    return session['user_uuid']
+
 @app.route('/')
 @auth.login_required
 def index():
@@ -158,20 +188,30 @@ def index():
 @app.route('/video_feed')
 @auth.login_required
 def video_feed():
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    user_uuid = session.get('user_uuid')
+    if user_uuid is None:
+        user_uuid = set_user_uuid()
+
+    return Response(gen_frames(user_uuid), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/moving_status')
+@auth.login_required
 def moving_status():
+    global user_data
+
+    user_uuid = session.get('user_uuid')
+    if user_uuid is None:
+        user_uuid = set_user_uuid()
+
+    is_baby_moving = user_data[user_uuid]['is_baby_moving']
     return jsonify(is_moving=is_baby_moving)
 
 @app.route('/switch_camera', methods=['POST'])
 @auth.login_required
 def switch_camera():
-    global selected_camera
     camera = request.form.get('camera')
     if camera:
-        selected_camera = int(camera)
-        print(f'selected camera: {selected_camera}')
+        user_data[session['user_uuid']]['selected_camera'] = int(camera)
     return '', 204  # Return an empty response with a 204 No Content status
 
 if __name__ == '__main__':

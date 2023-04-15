@@ -5,3 +5,4 @@ flask
 gunicorn
 Flask-HTTPAuth
 python-dotenv
+Flask-Session
