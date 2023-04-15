@@ -51,6 +51,7 @@ class DepthAI:
         self.rgb_video_queue = self.device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
         self.left_video_queue = self.device.getOutputQueue(name="left", maxSize=1, blocking=False)
 
+        # Register a callback to close the device when the app exits
         atexit.register(self._close_device)
 
     def _close_device(self):
@@ -65,11 +66,10 @@ class DepthAI:
     def _init_rgb_camera(self):
 
         camRgb = self.pipeline.create(dai.node.ColorCamera)
-
-        camRgb.setFps(10)
         camRgb.setBoardSocket(dai.CameraBoardSocket.RGB)
         camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         camRgb.setVideoSize(1920, 1080)
+        camRgb.setFps(10)
 
         xoutRGB = self.pipeline.create(dai.node.XLinkOut)
         xoutRGB.setStreamName("rgb")
@@ -108,7 +108,8 @@ def gen_frames(user_uuid):
     #     user_data[user_uuid] = {
     #         "motion_detector": BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold),
     #     }
-    
+
+    motion_detector = user_data[user_uuid]['motion_detector']
     rgb_queue = depthai_instance.get_rgb_queue()
     left_queue = depthai_instance.get_left_queue()
 
@@ -130,9 +131,10 @@ def gen_frames(user_uuid):
             print("videoIn is None")
             continue
 
-        print(f'current camera: {current_camera}, selected camera: {selected_camera}')
+        # print(f'current camera: {current_camera}, selected camera: {selected_camera}')
         if current_camera != selected_camera:
             motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
+            user_data[user_uuid]['motion_detector'] = motion_detector
             user_data[user_uuid]['is_baby_moving'] = False
             user_data[user_uuid]['current_camera'] = selected_camera
             continue
@@ -159,14 +161,11 @@ def gen_frames(user_uuid):
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-def generate_uuid():
-    return str(uuid.uuid4())
-
 def set_user_uuid():
     global user_data
 
     # Generate a random code for each user session
-    new_uuid = generate_uuid()
+    new_uuid = str(uuid.uuid4())
     session['user_uuid'] = new_uuid
 
     motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
@@ -189,7 +188,8 @@ def index():
 @auth.login_required
 def video_feed():
     user_uuid = session.get('user_uuid')
-    if user_uuid is None:
+    # check if user_uuid in user_data
+    if user_uuid not in user_data:
         user_uuid = set_user_uuid()
 
     return Response(gen_frames(user_uuid), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -198,9 +198,8 @@ def video_feed():
 @auth.login_required
 def moving_status():
     global user_data
-
     user_uuid = session.get('user_uuid')
-    if user_uuid is None:
+    if user_uuid not in user_data:
         user_uuid = set_user_uuid()
 
     is_baby_moving = user_data[user_uuid]['is_baby_moving']
