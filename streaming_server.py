@@ -34,7 +34,7 @@ Session(app)
 
 user_data = {}
 
-deteciton_buffer = 300
+deteciton_buffer = 60
 motion_threshold = 0.5
 
 class DepthAI:
