@@ -7,10 +7,13 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
+
+    <div class="container-fluid h-100vh">
+        <div class="row min-vh-100">
             <div class="col-12 col-md-6 d-flex justify-content-center p-0">
-                <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch" alt="Video Stream">
+                <div class="d-flex align-items-center h-100">
+                    <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch" alt="Video Stream">
+                </div>
             </div>
             <div class="col-12 col-md-6 d-flex align-items-center flex-column">
                 <div class="row justify-content-center mt-md-3 py-md-0 py-3">
@@ -27,7 +30,6 @@
             </div>
         </div>
     </div>
-    
     
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
@@ -87,12 +89,10 @@
 </script>
 
 <style>
-    @media (min-width: 768px) {
-        .video-stretch {
-            height: 100vh;
-            object-fit: cover;
-            width: auto;
-        }
+    .video-stretch {
+        object-fit: contain;
+        max-height: 100%;
+        max-width: 100%;
     }
 </style>
 

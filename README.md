@@ -35,6 +35,7 @@ python streaming_server.py
  - [x] Password protect the web app (flask_httpauth)
  - [x] Broadcast to the internet with ngrok
  - [x] Multi-camera switching
+ - [x] Use uuid to store session specific data like selected camera
  - [ ] Add a button to take a picture
  - [ ] Add a button to record a video
  - [ ] An infrared camera for the dark would be nice

@@ -2,16 +2,16 @@ import os
 import cv2
 import numpy as np
 import uuid
-import time
-import atexit
 from dotenv import load_dotenv
 
-import depthai as dai
 from flask import Flask, Response, render_template, request, jsonify, session
 from flask_session import Session
 from flask_httpauth import HTTPBasicAuth
 
-from img_utils import date_and_time
+from depthai_camera import DepthAI
+from droidcam_camera import DroidCam
+
+from img_utils import date_and_time, resize_n_rotate
 from motion_detection import BabyMotionDetector
 
 load_dotenv()
@@ -34,69 +34,19 @@ Session(app)
 
 user_data = {}
 
+target_height = 720
+compression_quality = 60
 deteciton_buffer = 60
 motion_threshold = 0.5
 
-class DepthAI:
-    # This code uses a Singleton pattern for the DepthAI class, which ensures only one instance of the device is created and shared among all requests. This should resolve the issue with multiple devices accessing the video feed.
+# camear_hardware = "depthai-oak-d"
+camear_hardware = "droidcam"
+droidcam_ip = "http://192.168.50.2:4747/video"
 
-    def __init__(self):
-        self.pipeline = dai.Pipeline()
-
-        self._init_rgb_camera()
-        self._init_mono_camera()
-
-        self.device = dai.Device(self.pipeline, usb2Mode=True)
-
-        self.rgb_video_queue = self.device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
-        self.left_video_queue = self.device.getOutputQueue(name="left", maxSize=1, blocking=False)
-
-        # Register a callback to close the device when the app exits
-        atexit.register(self._close_device)
-
-    def _close_device(self):
-        if self.device is not None:
-            self.device.close()
-
-    def create_mono(self, p, socket):
-        mono = p.create(dai.node.MonoCamera)
-        mono.setBoardSocket(socket)
-        mono.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-
-    def _init_rgb_camera(self):
-
-        camRgb = self.pipeline.create(dai.node.ColorCamera)
-        camRgb.setBoardSocket(dai.CameraBoardSocket.RGB)
-        camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        camRgb.setVideoSize(1920, 1080)
-        camRgb.setFps(10)
-
-        xoutRGB = self.pipeline.create(dai.node.XLinkOut)
-        xoutRGB.setStreamName("rgb")
-
-        camRgb.video.link(xoutRGB.input)
-
-    def _init_mono_camera(self):
-
-        # Define sources and outputs
-        monoLeft = self.pipeline.create(dai.node.MonoCamera)
-        monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
-        monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_720_P)
-        monoLeft.setFps(10)
-
-        xoutLeft = self.pipeline.create(dai.node.XLinkOut)
-        xoutLeft.setStreamName('left')
-
-        # Linking
-        monoLeft.out.link(xoutLeft.input)
-
-    def get_rgb_queue(self):
-        return self.rgb_video_queue
-
-    def get_left_queue(self):
-        return self.left_video_queue
-
-depthai_instance = DepthAI()
+if camear_hardware == "depthai-oak-d":
+    camera_instance = DepthAI()
+elif camear_hardware == "droidcam":
+    camera_instance = DroidCam(droidcam_ip, buffer_size=10, target_height=target_height)
 
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
@@ -110,45 +60,31 @@ def gen_frames(user_uuid):
     #     }
 
     motion_detector = user_data[user_uuid]['motion_detector']
-    rgb_queue = depthai_instance.get_rgb_queue()
-    left_queue = depthai_instance.get_left_queue()
 
     while True:
         selected_camera = user_data[user_uuid]['selected_camera']
         current_camera = user_data[user_uuid]['current_camera']
 
-        if selected_camera == 1:
-            videoIn = rgb_queue.get()
-            # videoIn = video_queue_rgb.get()
-            # video = device.getOutputQueue(name="rgb_video", maxSize=1, blocking=False)
-        elif selected_camera == 2:
-            videoIn = left_queue.get()
-        #     # video = device.getOutputQueue(name="left_video", maxSize=1, blocking=False)
-        else:
-            f"Camera 3 is not configured yet."
-
-        if videoIn is None:
-            print("videoIn is None")
-            continue
-
         # print(f'current camera: {current_camera}, selected camera: {selected_camera}')
         if current_camera != selected_camera:
+            camera_instance.set_current_camera(selected_camera)
             motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
             user_data[user_uuid]['motion_detector'] = motion_detector
             user_data[user_uuid]['is_baby_moving'] = False
             user_data[user_uuid]['current_camera'] = selected_camera
             continue
 
-        frame = np.array(videoIn.getCvFrame())
+        frame = camera_instance.get_frame().copy()
 
-        # rotate frame 90 degrees clockwise
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        if frame is None:
+            print("No frame received from camera. Trying again...")
+            continue
+
+        # frame = resize_n_rotate(frame, target_height=target_height)
 
         # Apply CLAHE
         # frame = clahe.apply(frame)
 
-        # if frame is grayscale, convert to 3 channel for denoising
-        # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
         # Apply Non-local Means Denoising
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
@@ -159,7 +95,13 @@ def gen_frames(user_uuid):
         # add date and time
         frame = date_and_time(frame)
 
-        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
+
+        # debug: Calculate the size of the resulting buffer (in kilobytes)
+        # size = buffer.nbytes
+        # size_kb = size / 1024
+        # print(f"Quality: {compression_quality}, Size: {size_kb:.2f} KB")
+
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
@@ -174,8 +116,8 @@ def set_user_uuid():
     motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
 
     user_data[new_uuid] = {
-        "selected_camera": 1,
-        "current_camera": 1,
+        "selected_camera": 2,
+        "current_camera": 2,
         "is_baby_moving": False,
         'motion_detector': motion_detector,
     }

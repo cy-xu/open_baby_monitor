@@ -2,6 +2,46 @@ import cv2
 import datetime
 import numpy as np
 
+def missing_frame_placeholder(size=256):
+    # Create a blank square image (500x500) with white background
+    img = np.ones((size, size, 3), dtype=np.uint8) * 255
+
+    # Set the font, scale, and color
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1
+    font_color = (0, 0, 0)
+
+    # Calculate the text size and position
+    text = "No video"
+    text_size = cv2.getTextSize(text, font, font_scale, 2)[0]
+    text_x = (img.shape[1] - text_size[0]) // 2
+    text_y = (img.shape[0] + text_size[1]) // 2
+
+    # Add the text to the image
+    cv2.putText(img, text, (text_x, text_y), font, font_scale, font_color, 2)
+    return img
+
+def resize_n_rotate(image, target_height=720):
+    shape = image.shape
+    width, height = shape[1], shape[0]
+
+    # downsize the image to 720 width
+    image = cv2.resize(image, (target_height, int(target_height * height / width)))
+
+    # rotate frame 90 degrees counter clockwise
+    # image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    # rotate frame 90 degrees clockwise
+    image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+
+    # no matter rgb or grayscale, convert to 3 channels
+    if len(image.shape) == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    elif image.shape[2] == 4:
+        image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    
+    return image
+
+
 def choose_contrast_color(color):
     if len(color) == 1:
         # Grayscale image
