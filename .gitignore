@@ -1,5 +1,6 @@
 # user name and pin are saved in the environment variables
 .env
+data
 
 flask_session
 

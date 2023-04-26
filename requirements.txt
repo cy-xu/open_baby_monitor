@@ -1,8 +1,8 @@
 numpy
 opencv-python==4.5.3.56
-depthai
 flask
-gunicorn
 Flask-HTTPAuth
 python-dotenv
 Flask-Session
+# gunicorn
+# depthai

@@ -1,22 +1,19 @@
 # Open Baby Monitor
 
-An open-source baby monitor that uses a stereo camera to provide a live video feed of the baby's crib, so I can keep an eye on the little thing while working. I also want to track the baby's sleep and send out alerts if necessary.
+An open-source baby monitor that uses ~~a stereo camera~~ an Android phone to provide a live video feed of the baby's crib, so I can keep an eye on the little thing while working. I also want to track the baby's sleep and send out alerts if necessary.
 
 Goals:
  - [x] A live video feed of the baby's crib
  - [x] Detects the baby's movement using temporal information
- - [ ] Detects the baby's movement using depth information
+ - [x] Simple camera control, like auto-focus, toggle flashlight, save image.
+ - [ ] ~~Detects the baby's movement using depth information~~
  - [ ] Detects if the baby is in the crib and logs her sleep time and quality
  - [ ] Detects the baby's face and send an alert if the baby is face down
  - [ ] Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
 
-DepthAI
-
+<img src="assets/interface_demo.jpg" alt="web interface" width="500px">
 
 ## Setup
-
-### Install DepthAI to support the OAK-D stereo camera
-https://docs.luxonis.com/en/latest/pages/tutorials/first_steps/#first-steps-with-depthai
 
 ### Install requirements
 ```bash
@@ -27,7 +24,7 @@ python -m pip install -r requirements.txt
 
 ```bash
 python streaming_server.py
-./ngrok http 5000
+# ./ngrok http 5000
 # gunicorn --workers 1 --threads 1 --bind 0.0.0.0:5000 streaming_server:app
 ```
 
@@ -38,23 +35,24 @@ python streaming_server.py
  - [x] Use uuid to store session specific data like selected camera
  - [x] Support Android phone's better low-light camear via IP Webcam
  - [x] Now handles disconnection and automatic reconnection
+ - [x] Image data collectino now works
  - [ ] Add a button to take a picture
  - [ ] Add a button to record a video
  - [ ] An infrared camera for the dark would be nice
 
 
 ### References:
- -
+ - [DepthAI to support the OAK-D stereo camera](https://docs.luxonis.com/en/latest/pages/tutorials/first_steps/#first-steps-with-depthai)
+ - [DroidCam controls](https://github.com/AiueoABC/Play_with_DroidCam/blob/master/capture.py)
+ - [IP Webcam control](https://community.home-assistant.io/t/android-ip-webcam-as-a-camera-plus-sensors/10566)
 
 ### License
 
 
 ### Notes:
 
-user name and pin are saved in the environment variables (.env), add this file to .gitignore to avoid saving sensitive information in the code repository
+ - The OAK-D stereo camera is nice to have, but my old Pixel 2 phone provides much better low-light performance, so I switched to using the phone as the camera.
 
+ - user name and pin are saved in the environment variables (.env), add this file to .gitignore to avoid saving sensitive information in the code repository
 
-
-Mac OS Catalina ssh issue: https://discussions.apple.com/thread/253932000
-In Terminal, type in and execute the following:
-sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
+ - Mac OS Catalina ssh issue: https://discussions.apple.com/thread/253932000. In Terminal, type in and execute the following: `sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist`

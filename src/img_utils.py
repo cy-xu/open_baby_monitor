@@ -1,9 +1,32 @@
+import os
 import cv2
 import datetime
 import numpy as np
 
-def save_frame_to_file(frame, filename):
+from . import model_prep
+
+def datetime_filename():
+    now = datetime.datetime.now()
+    now = now.strftime("%Y-%m-%d_%H-%M-%S")
+    return now
+
+def save_frame_to_file(frame, prefix="negative_"):
+    pos_dir, neg_dir = model_prep()
+    filename = prefix + datetime_filename() + ".jpg"
+    
+    if "negative" in prefix:
+        filename = os.path.join(neg_dir, filename)
+    else:
+        filename = os.path.join(pos_dir, filename)
+    
     cv2.imwrite(filename, frame)
+    # print(f"{prefix} sample saved @ {filename}")
+
+# def save_negative_sample(frame):
+#     save_frame_to_file(frame, prefix="negative_")
+
+#     timer = threading.Timer(5.0, save_negative_sample, args=[frame])
+#     timer.start()
 
 def missing_frame_placeholder(size=256):
     # Create a blank square image (500x500) with white background

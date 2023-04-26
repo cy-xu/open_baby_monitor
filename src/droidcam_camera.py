@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import queue
@@ -5,7 +6,7 @@ import threading
 import time
 import urllib.request as urlreq
 
-from img_utils import missing_frame_placeholder, resize_n_rotate
+from . import model_prep, resize_n_rotate
 
 class PeekableQueue(queue.Queue):
     def peek(self):
@@ -20,6 +21,8 @@ class DroidCam:
         self.auto_focus = 0
         self.flash_on = 0
         self.reconnect_limit = 100
+
+        self.pos_dir, self.neg_dir = model_prep()
 
         # switched ip webcam
         self.camera_source = camera_ip + "/shot.jpg"
@@ -137,3 +140,4 @@ class DroidCam:
             return None
         else:
             return self.frame.copy()
+

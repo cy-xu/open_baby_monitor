@@ -4,17 +4,13 @@ import numpy as np
 import uuid
 from dotenv import load_dotenv
 import time
+import threading
 
 from flask import Flask, Response, render_template, request, jsonify, session
 from flask_session import Session
 from flask_httpauth import HTTPBasicAuth
 
-from depthai_camera import DepthAI
-from droidcam_camera import DroidCam
-
-from img_utils import date_and_time, missing_frame_placeholder
-from model_utils import model_prep
-from motion_detection import BabyMotionDetector
+from src import *
 
 load_dotenv()
 
@@ -59,10 +55,18 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 # draw a square image with a red warning sign in the middle
 warning_image = missing_frame_placeholder(256)
 
-pos_dir, neg_dir = model_prep()
+def reset_timer(time, flag_key):
+    flags[flag_key] = 1
+    timer = threading.Timer(time, reset_timer, args=[time, flag_key])
+    timer.start()
+
+# data collection
+flags = {"save_negative": 1, "save_positive": 0}
+# this resets the flag to 1 again after 600 seconds
+reset_timer(600.0, "save_negative")
 
 def gen_frames(user_uuid):
-    global user_data
+    global user_data, save_negative, save_positive
 
     # Create a dictionary for the user in user_data if it doesn't exist
     # if user_uuid not in user_data:
@@ -108,21 +112,30 @@ def gen_frames(user_uuid):
                 frame = np.uint8(frame * 255)
 
             # add date and time
-            frame = date_and_time(frame)
+            frame_display = date_and_time(frame)
         else:
-            frame = warning_image
+            frame_display = warning_image
             print("No frame received from camera. Trying again...")
 
-        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
+        ret, buffer = cv2.imencode('.jpg', frame_display, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
 
         # debug: Calculate the size of the resulting buffer (in kilobytes)
         # size = buffer.nbytes
         # size_kb = size / 1024
         # print(f"Quality: {compression_quality}, Size: {size_kb:.2f} KB")
 
-        frame = buffer.tobytes()
+        frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        # data collection
+        if flags["save_negative"] == 1:
+            flags["save_negative"] = 0
+            save_frame_to_file(frame, prefix="negative_")
+
+        if flags["save_positive"] == 1:
+            flags["save_positive"] = 0
+            save_frame_to_file(frame, "positive_")
 
         # Sleep for a duration corresponding to 30 FPS
         time.sleep(1 / 40)
@@ -174,11 +187,16 @@ def moving_status():
 @app.route('/switch_camera', methods=['POST'])
 @auth.login_required
 def switch_camera():
+    global user_data, flags
     command = request.form.get('command')
     if command == "toggle_flash":
         camera_instance.toggleFlash()
     elif command in ["day_cam", "night_cam"]:
         user_data[session['user_uuid']]['selected_camera'] = command
+    elif command == "save_positive_sample":
+        flags["save_positive"] = 1
+    elif command == "save_negative_sample":
+        flags["save_negative"] = 1
     return '', 204  # Return an empty response with a 204 No Content status
 
 @app.errorhandler(400)
