@@ -98,6 +98,15 @@ def gen_frames(user_uuid):
             user_data[user_uuid]['is_baby_moving'] = is_baby_moving
             # print(f'is baby moving: {is_baby_moving}')
 
+            # a series of image processing steps to improve the image quality
+            if current_camera == "night_cam":
+                # convert to grayscale
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                frame = clahe.apply(frame)
+                # Apply gamma correction
+                frame = np.power(frame / 255.0, 1.0 / 1.5)
+                frame = np.uint8(frame * 255)
+
             # add date and time
             frame = date_and_time(frame)
         else:
@@ -128,8 +137,8 @@ def set_user_uuid():
     motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
 
     user_data[new_uuid] = {
-        "selected_camera": 2,
-        "current_camera": 2,
+        "selected_camera": "day_cam",
+        "current_camera": "day_cam",
         "is_baby_moving": False,
         'motion_detector': motion_detector,
     }
