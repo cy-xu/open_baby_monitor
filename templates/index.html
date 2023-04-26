@@ -5,29 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baby Monitor 小狗睡觉</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
 
     <div class="container-fluid h-100vh">
-        <div class="row min-vh-100">
+        <div class="row max-height-vh-100">
             <div class="col-12 col-md-6 d-flex justify-content-center p-0">
                 <div class="d-flex align-items-center h-100">
                     <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch" alt="Video Stream">
                 </div>
             </div>
             <div class="col-12 col-md-6 d-flex align-items-center flex-column">
-                <div class="row justify-content-center mt-md-3 py-md-0 py-3">
+                <div class="row text-center mt-md-3 py-md-0 py-3">
                     <div class="col-auto">
-                        <button id="rgb_cam" type="button" class="btn btn-primary btn-sm">Day (白天)</button>
+                        <button id="day_cam" type="button" class="btn btn-primary btn-sm">Day (白天)</button>
                     </div>
                     <div class="col-auto">
-                        <button id="left_cam" type="button" class="btn btn-primary btn-sm">Night (低光)</button>
+                        <button id="night_cam" type="button" class="btn btn-primary btn-sm">Night (低光)</button>
                     </div>
                     <div class="col-auto">
-                        <button id="depth_cam" type="button" class="btn btn-primary btn-sm">Camera 3</button>
+                        <button id="toggle_flash" type="button" class="btn btn-primary btn-sm">Light (开关灯)</button>
                     </div>
                 </div>
-            </div>
+                <div class="row text-center mt-md-3 py-md-0 py-3">
+                    <div class="col-auto">
+                        <button id="save_positive_sample" type="button" class="btn btn-primary btn-sm">Positive sample (有狗拍照)</button>
+                        <button id="save_negative_sample" type="button" class="btn btn-primary btn-sm">Negative sample (无狗拍照)</button>
+                    </div>
+                </div>
+                <div class="row text-center">
+                    <div id="sleep-grid" class="col-12 mw-100">
+                    </div>
+                </div>
         </div>
     </div>
     
@@ -37,13 +47,13 @@
 </body>
 
 <script>
-    function switchCamera(camera) {
+    function switchCamera(command) {
         fetch('/switch_camera', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: 'camera=' + camera
+            body: 'command=' + command
         });
     }
 
@@ -70,7 +80,44 @@
         });
     }
 
-    // updateMovingStatus();
+    function drawSleepGrid(data) {
+        // Get the width of the sleep-grid-row div
+        const rowWidth = document.getElementById('sleep-grid').offsetWidth;
+        console.log('rowWidth', rowWidth);
+
+        // Define the dimensions of the grid
+        //The divisor (24 hours * 12) splits a day into 5 minutes cells, control the width of each cell
+        const gridWidth = Math.floor(rowWidth / 24 * 12); 
+        const gridHeight = 5 * gridWidth;
+
+        // Define the dimensions of the SVG container
+        const width = rowWidth;
+        const height = 400;
+
+        // Define the colors for sleep and awake states
+        const sleepColor = '#79A9D1';
+        const awakeColor = '#7d8ca3';
+
+        // Create the SVG container
+        const svg = d3.select('#sleep-grid')
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height);
+
+        // Create the sleep grid
+        svg.selectAll('rect')
+            .data(data)
+            .join('rect')
+            .attr('x', (d, i) => (i % gridWidth) * (width / gridWidth))
+            .attr('y', (d, i) => Math.floor(i / gridWidth) * (height / gridHeight))
+            .attr('width', width / gridWidth)
+            .attr('height', height / gridHeight)
+            .attr('fill', d => d ? sleepColor : awakeColor);
+    }
+
+    // Example data (replace with your actual data)
+    const exampleData = Array(400).fill().map((_, i) => i % 2);
+
 
     document.addEventListener('DOMContentLoaded', function() {
 
@@ -78,13 +125,21 @@
             updateMovingStatus();
             console.log('Called updateMovingStatus after a short delay');
         }, 2000);
-        
-        document.getElementById('rgb_cam').addEventListener('click', function() { switchCamera(1); });
-        document.getElementById('left_cam').addEventListener('click', function() { switchCamera(2); });
-        document.getElementById('depth_cam').addEventListener('click', function() { switchCamera(3); });
+
+        document.getElementById('day_cam').addEventListener('click', function() { switchCamera("day_cam"); });
+        document.getElementById('night_cam').addEventListener('click', function() { switchCamera("night_cam"); });
+        document.getElementById('toggle_flash').addEventListener('click', function() { switchCamera("toggle_flash"); });
+        document.getElementById('save_positive_sample').addEventListener('click', function() { switchCamera("save_positive_sample"); });
+        document.getElementById('save_negative_sample').addEventListener('click', function() { switchCamera("save_negative_sample"); });
+
     });
 
-
+    // Add the window.onload event listener
+    // window.addEventListener('load', function() {
+    //     setTimeout(function() {
+    //         drawSleepGrid(exampleData);
+    //     }, 1000);
+    // });
 
 </script>
 
@@ -93,6 +148,10 @@
         object-fit: contain;
         max-height: 100%;
         max-width: 100%;
+    }
+
+    .max-height-vh-100 {
+        max-height: 100vh;
     }
 </style>
 

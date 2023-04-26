@@ -2,6 +2,9 @@ import cv2
 import datetime
 import numpy as np
 
+def save_frame_to_file(frame, filename):
+    cv2.imwrite(filename, frame)
+
 def missing_frame_placeholder(size=256):
     # Create a blank square image (500x500) with white background
     img = np.ones((size, size, 3), dtype=np.uint8) * 255

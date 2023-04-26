@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import uuid
 from dotenv import load_dotenv
+import time
 
 from flask import Flask, Response, render_template, request, jsonify, session
 from flask_session import Session
@@ -11,7 +12,8 @@ from flask_httpauth import HTTPBasicAuth
 from depthai_camera import DepthAI
 from droidcam_camera import DroidCam
 
-from img_utils import date_and_time, resize_n_rotate
+from img_utils import date_and_time, missing_frame_placeholder
+from model_utils import model_prep
 from motion_detection import BabyMotionDetector
 
 load_dotenv()
@@ -41,14 +43,23 @@ motion_threshold = 0.5
 
 # camear_hardware = "depthai-oak-d"
 camear_hardware = "droidcam"
-droidcam_ip = "http://192.168.50.2:4747/video"
+
+# droidcam_ip = "http://192.168.50.2:4747"
+droidcam_ip = "http://192.168.50.2:8080"
+# droidcam_ip = 0
 
 if camear_hardware == "depthai-oak-d":
     camera_instance = DepthAI()
 elif camear_hardware == "droidcam":
-    camera_instance = DroidCam(droidcam_ip, buffer_size=10, target_height=target_height)
+    camera_instance = DroidCam(droidcam_ip, buffer_size=1, target_height=target_height)
+    # camera_instance.toggle_flash = 1
 
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+
+# draw a square image with a red warning sign in the middle
+warning_image = missing_frame_placeholder(256)
+
+pos_dir, neg_dir = model_prep()
 
 def gen_frames(user_uuid):
     global user_data
@@ -74,13 +85,7 @@ def gen_frames(user_uuid):
             user_data[user_uuid]['current_camera'] = selected_camera
             continue
 
-        frame = camera_instance.get_frame().copy()
-
-        if frame is None:
-            print("No frame received from camera. Trying again...")
-            continue
-
-        # frame = resize_n_rotate(frame, target_height=target_height)
+        frame = camera_instance.get_frame()
 
         # Apply CLAHE
         # frame = clahe.apply(frame)
@@ -88,12 +93,16 @@ def gen_frames(user_uuid):
         # Apply Non-local Means Denoising
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
-        is_baby_moving, frame = motion_detector.is_baby_moving(frame)
-        user_data[user_uuid]['is_baby_moving'] = is_baby_moving
-        # print(f'is baby moving: {is_baby_moving}')
+        if frame is not None:
+            is_baby_moving, frame = motion_detector.is_baby_moving(frame.copy())
+            user_data[user_uuid]['is_baby_moving'] = is_baby_moving
+            # print(f'is baby moving: {is_baby_moving}')
 
-        # add date and time
-        frame = date_and_time(frame)
+            # add date and time
+            frame = date_and_time(frame)
+        else:
+            frame = warning_image
+            print("No frame received from camera. Trying again...")
 
         ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
 
@@ -106,6 +115,9 @@ def gen_frames(user_uuid):
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+        # Sleep for a duration corresponding to 30 FPS
+        time.sleep(1 / 40)
+            
 def set_user_uuid():
     global user_data
 
@@ -153,10 +165,19 @@ def moving_status():
 @app.route('/switch_camera', methods=['POST'])
 @auth.login_required
 def switch_camera():
-    camera = request.form.get('camera')
-    if camera:
-        user_data[session['user_uuid']]['selected_camera'] = int(camera)
+    command = request.form.get('command')
+    if command == "toggle_flash":
+        camera_instance.toggleFlash()
+    elif command in ["day_cam", "night_cam"]:
+        user_data[session['user_uuid']]['selected_camera'] = command
     return '', 204  # Return an empty response with a 204 No Content status
 
+@app.errorhandler(400)
+def bad_request(error):
+    response = jsonify({"error": "Bad Request", "message": error.description})
+    response.status_code = 400
+    print("print inside errorhandler")
+    return response
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=False)

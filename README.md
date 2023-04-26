@@ -36,6 +36,8 @@ python streaming_server.py
  - [x] Broadcast to the internet with ngrok
  - [x] Multi-camera switching
  - [x] Use uuid to store session specific data like selected camera
+ - [x] Support Android phone's better low-light camear via IP Webcam
+ - [x] Now handles disconnection and automatic reconnection
  - [ ] Add a button to take a picture
  - [ ] Add a button to record a video
  - [ ] An infrared camera for the dark would be nice
