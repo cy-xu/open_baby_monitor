@@ -3,13 +3,14 @@
 An open-source baby monitor that uses ~~a stereo camera~~ an Android phone to provide a live video feed of the baby's crib, so I can keep an eye on the little thing while working. I also want to track the baby's sleep and send out alerts if necessary.
 
 Goals:
- - [x] A live video feed of the baby's crib
+ - [x] A password protected live video feed of the baby's crib
  - [x] Detects the baby's movement using temporal information
  - [x] Simple camera control, like auto-focus, toggle flashlight, save image.
+ - [x] Detects if the baby is in the crib
+ - [ ] Automatically logs her sleep duration and quality
+ - [ ] Detects if the baby's airway is obstructed (face down or covered)
+ - [ ] Tracks the room temperature and humidity, so I can analyze any correlation with the baby's sleep quality
  - [ ] ~~Detects the baby's movement using depth information~~
- - [ ] Detects if the baby is in the crib and logs her sleep time and quality
- - [ ] Detects the baby's face and send an alert if the baby is face down
- - [ ] Tracks the room temperature and humidity and check if there is a correlation with the baby's sleep quality
 
 <img src="assets/interface_demo.jpg" alt="web interface" width="500px">
 
@@ -35,8 +36,10 @@ python streaming_server.py
  - [x] Use uuid to store session specific data like selected camera
  - [x] Support Android phone's better low-light camear via IP Webcam
  - [x] Now handles disconnection and automatic reconnection
- - [x] Image data collectino now works
- - [ ] Add a button to take a picture
+ - [x] Image data collection now works
+ - [x] Add a button to take a picture
+ - [x] "baby in crib" detection model via Google's [Teachable Machine](https://teachablemachine.withgoogle.com/)
+ - [x] The light now turns off after 10 seconds
  - [ ] Add a button to record a video
  - [ ] An infrared camera for the dark would be nice
 

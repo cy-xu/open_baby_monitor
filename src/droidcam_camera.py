@@ -85,6 +85,10 @@ class DroidCam:
         if self.flash_on == 0:
             toggleFlash = self.camera_ip + '/enabletorch'
             self.flash_on = 1
+
+            # after 10 seconds, call toggleFlash again to turn off the light
+            timer = threading.Timer(10.0, self.toggleFlash)
+            timer.start()
         else:
             toggleFlash = self.camera_ip + '/disabletorch'
             self.flash_on = 0
@@ -119,7 +123,8 @@ class DroidCam:
                 self.frame = None
                 self.reconnect_limit = 100
 
-            time.sleep(1/40)
+            # lower frame rate to lower CPU usage
+            time.sleep(1/10)
 
     @staticmethod
     def cmdSender(cmd):

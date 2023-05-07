@@ -91,28 +91,25 @@ def gen_frames(user_uuid):
 
         frame = camera_instance.get_frame()
 
-        # Apply CLAHE
-        # frame = clahe.apply(frame)
-
         # Apply Non-local Means Denoising
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
         if frame is not None:
-            is_baby_moving, frame = motion_detector.is_baby_moving(frame.copy())
+            is_baby_moving, frame_move = motion_detector.is_baby_moving(frame)
             user_data[user_uuid]['is_baby_moving'] = is_baby_moving
             # print(f'is baby moving: {is_baby_moving}')
 
             # a series of image processing steps to improve the image quality
             if current_camera == "night_cam":
                 # convert to grayscale
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                frame = clahe.apply(frame)
+                frame_gray = cv2.cvtColor(frame_move, cv2.COLOR_BGR2GRAY)
+                frame_clahe = clahe.apply(frame_gray)
                 # Apply gamma correction
-                frame = np.power(frame / 255.0, 1.0 / 1.5)
-                frame = np.uint8(frame * 255)
+                frame_gamma = np.power(frame_clahe / 255.0, 1.0 / 1.5)
+                frame_move = np.uint8(frame_gamma * 255)
 
             # add date and time
-            frame_display = date_and_time(frame)
+            frame_display = date_and_time(frame_move)
         else:
             frame_display = warning_image
             print("No frame received from camera. Trying again...")
@@ -137,9 +134,9 @@ def gen_frames(user_uuid):
             flags["save_positive"] = 0
             save_frame_to_file(frame, "positive_")
 
-        # Sleep for a duration corresponding to 30 FPS
-        time.sleep(1 / 40)
-            
+        # Sleep for a duration corresponding to 10 FPS
+        time.sleep(1 / 10)
+
 def set_user_uuid():
     global user_data
 

@@ -34,6 +34,11 @@
                         <button id="save_negative_sample" type="button" class="btn btn-primary btn-sm">Negative sample (无狗拍照)</button>
                     </div>
                 </div>
+
+                <div class="row text-center mt-md-3 py-md-0 py-3" id="label-container">
+                    <div id="prediction-alert" class="alert" role="alert" style="display:none;"></div>
+                </div>
+
                 <div class="row text-center">
                     <div id="sleep-grid" class="col-12 mw-100">
                     </div>
@@ -44,6 +49,9 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
 </body>
 
 <script>
@@ -79,6 +87,78 @@
             setTimeout(updateMovingStatus, 5000);
         });
     }
+
+    const baby_in_crib_model_URL = "https://teachablemachine.withgoogle.com/models/ymtMcf5bM/";
+    // Class 0 = Baby in crib
+    // Class 1 = Baby not in crib
+    
+    let crib_model, crib_image, labelContainer, maxPredictions;
+
+    async function init_crib_model() {
+        const modelURL = baby_in_crib_model_URL + "model.json";
+        const metadataURL = baby_in_crib_model_URL + "metadata.json";
+
+        crib_model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = crib_model.getTotalClasses();
+
+        crib_image = document.getElementById("video");
+
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) {
+            labelContainer.appendChild(document.createElement("div"));
+        }
+
+        // Start prediction loop
+        // window.requestAnimationFrame(loop);
+        loop();
+    }
+
+    async function loop() {
+        await predict();
+        // window.requestAnimationFrame(loop);
+        // instead of looping, wait for 5 seconds before predicting again
+        setTimeout(loop, 5000);
+    }
+
+    // async function predict() {
+    //     const prediction = await crib_model.predict(crib_image);
+    //     for (let i = 0; i < maxPredictions; i++) {
+    //         const classPrediction =
+    //             prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+    //         labelContainer.childNodes[i].innerHTML = classPrediction;
+    //     }
+    // }
+
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await crib_model.predict(crib_image);
+
+        let inCrib = false;
+        let inCribProbability = 0;
+
+        for (let i = 0; i < maxPredictions; i++) {
+            if (prediction[i].className === "Class 1") {
+                inCribProbability = prediction[i].probability;
+                if (inCribProbability > 0.75) {
+                    inCrib = true;
+                }
+                break;
+            }
+        }
+
+        const predictionAlert = document.getElementById("prediction-alert");
+
+        if (inCrib) {
+            predictionAlert.innerHTML = "Baby in the crib";
+            predictionAlert.className = "alert alert-success";
+        } else {
+            predictionAlert.innerHTML = "Baby not in the crib";
+            predictionAlert.className = "alert alert-danger";
+        }
+
+        predictionAlert.style.display = "block";
+    }
+
 
     function drawSleepGrid(data) {
         // Get the width of the sleep-grid-row div
@@ -121,10 +201,12 @@
 
     document.addEventListener('DOMContentLoaded', function() {
 
-        setTimeout(function() {
-            updateMovingStatus();
-            console.log('Called updateMovingStatus after a short delay');
-        }, 2000);
+        // setTimeout(function() {
+            // updateMovingStatus();
+            // console.log('Called updateMovingStatus after a short delay');
+        // }, 2000);
+
+        init_crib_model();
 
         document.getElementById('day_cam').addEventListener('click', function() { switchCamera("day_cam"); });
         document.getElementById('night_cam').addEventListener('click', function() { switchCamera("night_cam"); });
