@@ -6,3 +6,4 @@ python-dotenv
 Flask-Session
 # gunicorn
 # depthai
+tensorflow

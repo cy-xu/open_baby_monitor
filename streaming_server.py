@@ -30,12 +30,14 @@ app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")  # Set this to a secure
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
-user_data = {}
-
 target_height = 720
 compression_quality = 60
-deteciton_buffer = 60
+deteciton_buffer = 5
 motion_threshold = 0.5
+
+user_data = {}
+user_data[0] = {"rgb_frame": None, "night_frame": None, "is_baby_moving": False, "baby_in_crib": False}
+user_data[0]['motion_detector'] = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
 
 # camear_hardware = "depthai-oak-d"
 camear_hardware = "droidcam"
@@ -55,13 +57,68 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 # draw a square image with a red warning sign in the middle
 warning_image = missing_frame_placeholder(256)
 
+# running in a separate thread to constantly update the frame
+def update_frame():
+    global user_data
+
+    while True:
+        frame_rgb = camera_instance.get_frame()
+
+        if frame_rgb is not None:
+            user_data[0]['rgb_frame'] = date_and_time(frame_rgb.copy())
+
+            # a series of image processing steps to improve the image quality
+            # convert to grayscale
+            frame_gray = cv2.cvtColor(frame_rgb, cv2.COLOR_BGR2GRAY)
+            frame_clahe = clahe.apply(frame_gray)
+            # Apply gamma correction
+            frame_gamma = np.power(frame_clahe / 255.0, 1.0 / 1.5)
+            frame_gray = np.uint8(frame_gamma * 255)
+
+            is_baby_moving, frame_gray = user_data[0]['motion_detector'].is_baby_moving(frame_gray)
+            user_data[0]['is_baby_moving'] = is_baby_moving
+            # print(f'is baby moving: {is_baby_moving}')
+
+            # add date and time
+            user_data[0]['night_frame'] = date_and_time(frame_gray)
+
+        else:
+            user_data[0]['night_frame'] = warning_image
+            user_data[0]['rgb_frame'] = warning_image
+            print("No frame received from camera. Trying again...")
+        
+        time.sleep(1 / 10)  # Sleep for a duration corresponding to 10 FPS
+
 def reset_timer(time, flag_key):
     flags[flag_key] = 1
     timer = threading.Timer(time, reset_timer, args=[time, flag_key])
     timer.start()
 
+def save_and_predict():
+    global user_data
+
+    while True:
+        frame = user_data[0]['night_frame']
+        # check if frame is a real image
+        if frame is None:
+            time.sleep(5)
+            continue
+
+        filename = "current_frame.jpg"
+        cv2.imwrite(filename, frame)
+        class_name, confidence_score = predict_image(filename)
+        print("Class:", class_name)
+        print("Confidence Score:", confidence_score)
+        time.sleep(60)  # sleep for 1 minute
+
+update_thread = threading.Thread(target=update_frame)
+update_thread.start()
+
+predict_thread = threading.Thread(target=save_and_predict)
+predict_thread.start()
+
 # data collection
-flags = {"save_negative": 1, "save_positive": 0}
+flags = {"save_negative": 1, "save_positive": 0, "save_frame": 1, "predict_crib": 1}
 # this resets the flag to 1 again after 600 seconds
 reset_timer(600.0, "save_negative")
 
@@ -74,7 +131,7 @@ def gen_frames(user_uuid):
     #         "motion_detector": BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold),
     #     }
 
-    motion_detector = user_data[user_uuid]['motion_detector']
+    # motion_detector = user_data[user_uuid]['motion_detector']
 
     while True:
         selected_camera = user_data[user_uuid]['selected_camera']
@@ -83,38 +140,20 @@ def gen_frames(user_uuid):
         # print(f'current camera: {current_camera}, selected camera: {selected_camera}')
         if current_camera != selected_camera:
             camera_instance.set_current_camera(selected_camera)
-            motion_detector = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
-            user_data[user_uuid]['motion_detector'] = motion_detector
             user_data[user_uuid]['is_baby_moving'] = False
             user_data[user_uuid]['current_camera'] = selected_camera
             continue
 
-        frame = camera_instance.get_frame()
+        # frame = camera_instance.get_frame()
+        if current_camera == "night_cam":
+            frame = user_data[0]['night_frame']
+        else:
+            frame = user_data[0]['rgb_frame']
 
         # Apply Non-local Means Denoising
         # frame = cv2.fastNlMeansDenoising(frame, None, h=10, templateWindowSize=7, searchWindowSize=21)
 
-        if frame is not None:
-            is_baby_moving, frame_move = motion_detector.is_baby_moving(frame)
-            user_data[user_uuid]['is_baby_moving'] = is_baby_moving
-            # print(f'is baby moving: {is_baby_moving}')
-
-            # a series of image processing steps to improve the image quality
-            if current_camera == "night_cam":
-                # convert to grayscale
-                frame_gray = cv2.cvtColor(frame_move, cv2.COLOR_BGR2GRAY)
-                frame_clahe = clahe.apply(frame_gray)
-                # Apply gamma correction
-                frame_gamma = np.power(frame_clahe / 255.0, 1.0 / 1.5)
-                frame_move = np.uint8(frame_gamma * 255)
-
-            # add date and time
-            frame_display = date_and_time(frame_move)
-        else:
-            frame_display = warning_image
-            print("No frame received from camera. Trying again...")
-
-        ret, buffer = cv2.imencode('.jpg', frame_display, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
+        ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), compression_quality])
 
         # debug: Calculate the size of the resulting buffer (in kilobytes)
         # size = buffer.nbytes

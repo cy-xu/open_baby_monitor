@@ -38,7 +38,10 @@ class BabyMotionDetector:
 
 
     def is_baby_moving(self, new_frame):
-        motion_detected, annotated_frame = self.detect_motion(new_frame)
+        try:
+            motion_detected, annotated_frame = self.detect_motion(new_frame)
+        except:
+            return False, new_frame
 
         # Store the motion detection result in the motion_buffer
         self.motion_buffer.append(motion_detected)
