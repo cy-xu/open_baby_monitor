@@ -7,3 +7,4 @@ Flask-Session
 # gunicorn
 # depthai
 tensorflow
+pandas

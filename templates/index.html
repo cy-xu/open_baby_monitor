@@ -92,64 +92,25 @@
     // Class 0 = Baby in crib
     // Class 1 = Baby not in crib
     
-    let crib_model, crib_image, labelContainer, maxPredictions;
-
-    async function init_crib_model() {
-        const modelURL = baby_in_crib_model_URL + "model.json";
-        const metadataURL = baby_in_crib_model_URL + "metadata.json";
-
-        crib_model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = crib_model.getTotalClasses();
-
-        crib_image = document.getElementById("video");
-
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) {
-            labelContainer.appendChild(document.createElement("div"));
-        }
-
-        // Start prediction loop
-        // window.requestAnimationFrame(loop);
-        loop();
-    }
-
-    async function loop() {
-        await predict();
-        // window.requestAnimationFrame(loop);
-        // instead of looping, wait for 5 seconds before predicting again
-        setTimeout(loop, 5000);
-    }
-
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await crib_model.predict(crib_image);
-
-        let inCrib = false;
-        let inCribProbability = 0;
-
-        for (let i = 0; i < maxPredictions; i++) {
-            if (prediction[i].className === "Class 1") {
-                inCribProbability = prediction[i].probability;
-                if (inCribProbability > 0.75) {
-                    inCrib = true;
-                }
-                break;
-            }
-        }
+    async function in_crib_status() {
+        const res = await fetch('/in_crib');
+        const prediction = await res.json();
+        // console.log(prediction.confidence_score);
+        let confidence = Math.round(prediction.confidence_score * 100);
 
         const predictionAlert = document.getElementById("prediction-alert");
-
-        if (inCrib) {
-            predictionAlert.innerHTML = "Baby in the crib";
+        if (prediction.class_name === "in_crib") {
+            predictionAlert.innerHTML = `Baby in the crib. 床里有娃。(${confidence}%)`;
             predictionAlert.className = "alert alert-success";
         } else {
-            predictionAlert.innerHTML = "Baby not in the crib";
+            predictionAlert.innerHTML = `Baby not in the crib. 床里没娃。(${confidence}%)`;
             predictionAlert.className = "alert alert-danger";
         }
 
         predictionAlert.style.display = "block";
-    }
 
+        setTimeout(in_crib_status, 60000);
+    }
 
     function drawSleepGrid(data) {
         // Get the width of the sleep-grid-row div
@@ -192,12 +153,9 @@
 
     document.addEventListener('DOMContentLoaded', function() {
 
-        // setTimeout(function() {
-            // updateMovingStatus();
-            // console.log('Called updateMovingStatus after a short delay');
-        // }, 2000);
+        updateMovingStatus();
 
-        init_crib_model();
+        in_crib_status();
 
         document.getElementById('day_cam').addEventListener('click', function() { switchCamera("day_cam"); });
         document.getElementById('night_cam').addEventListener('click', function() { switchCamera("night_cam"); });
@@ -209,9 +167,7 @@
 
     // Add the window.onload event listener
     // window.addEventListener('load', function() {
-    //     setTimeout(function() {
-    //         drawSleepGrid(exampleData);
-    //     }, 1000);
+        // drawSleepGrid(exampleData);
     // });
 
 </script>

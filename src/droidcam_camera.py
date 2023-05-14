@@ -15,6 +15,8 @@ class PeekableQueue(queue.Queue):
 
 class DroidCam:
     def __init__(self, camera_ip, buffer_size=1, target_height=720):
+        # switched from DroidCam to Android ip webcam
+
         self.current_camera = 0
         self.camera_ip = camera_ip
         self.target_height = target_height
@@ -22,11 +24,10 @@ class DroidCam:
         self.flash_on = 0
         self.reconnect_limit = 100
 
-        self.pos_dir, self.neg_dir = model_prep()
+        self.jpeg_mode = True
+        # self.jpeg_mode = False
 
-        # switched ip webcam
-        self.camera_source = camera_ip + "/shot.jpg"
-        self.frame = self.request_latest_frame()
+        self.pos_dir, self.neg_dir = model_prep()
 
         # Set the camera resolution
         SIZE320x240 = '/video?320X240'
@@ -35,14 +36,18 @@ class DroidCam:
         SIZE_video = '/video'
         SIZE_empty = '/mjpegfeed?640x480'
 
-        # camera_source = camera_ip + SIZE_video
-        # self.cap = cv2.VideoCapture(camera_source)
-        # self.ret, self.frame = self.cap.read()
+        if self.jpeg_mode:
+            # read from a still jpeg the camera server provides
+            self.camera_source = camera_ip + "/shot.jpg"
+            self.frame = self.request_latest_frame()
+        else:
+            camera_source = camera_ip + SIZE_video
+            self.cap = cv2.VideoCapture(camera_source)
+            self.ret, self.frame = self.cap.read()
+            # self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         # get the width and height of the frame
-        # self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        # self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
         self.height = self.frame.shape[0]
         self.width = self.frame.shape[1]
 
@@ -57,23 +62,28 @@ class DroidCam:
         # give the camera time to warm up and build up the buffer
         # time.sleep(1)
 
-    def request_latest_frame(self):        
-        imgResp = urlreq.urlopen(self.camera_source)
+    def request_latest_frame(self):
 
-        # Check if the request was successful by looking at the status code
-        if imgResp.status == 200:
-            img_data = imgResp.read()
-            img_np = np.array(bytearray(img_data), dtype=np.uint8)
-            img = cv2.imdecode(img_np, -1)
+        if self.jpeg_mode:
+            imgResp = urlreq.urlopen(self.camera_source)
 
-            # Check if the image was successfully decoded by looking at its shape
-            if img is not None and img.shape:
-                return img
+            # Check if the request was successful by looking at the status code
+            if imgResp.status == 200:
+                img_data = imgResp.read()
+                img_np = np.array(bytearray(img_data), dtype=np.uint8)
+                frame = cv2.imdecode(img_np, -1)
             else:
-                print("Error in decoding the image.")
+                print(f"Error in requesting the image. Status code: {imgResp.status}")
                 return None
+
         else:
-            print(f"Error in requesting the image. Status code: {imgResp.status}")
+            self.ret, frame = self.cap.read()
+
+        # Check if the image was successfully decoded by looking at its shape
+        if frame is not None and frame.shape:
+            return frame
+        else:
+            print("Error in decoding the image.")
             return None
 
     def autoFocus(self):
@@ -119,9 +129,18 @@ class DroidCam:
             if self.reconnect_limit == 0:
                 # re-establish the connection
                 print(f'reconnecting to {self.camera_ip}...')
-                # self.cap = cv2.VideoCapture(self.camera_ip)
-                self.frame = None
-                self.reconnect_limit = 100
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.camera_ip)
+                self.ret, self.frame = self.cap.read()
+        
+                if self.ret:
+                    print(f'Connected to {self.camera_ip}')
+                    self.reconnect_limit = 100
+                else:
+                    print(f'Failed to connect to {self.camera_ip}. Retrying in 5 seconds...')
+                    time.sleep(5)  # Wait before retrying
+
+                # self.frame = None
 
             # lower frame rate to lower CPU usage
             time.sleep(1/10)

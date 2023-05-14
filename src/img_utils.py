@@ -5,6 +5,16 @@ import numpy as np
 
 from . import model_prep
 
+def date_time_five_min():
+    # Get the current time
+    now = datetime.datetime.now()
+    # Round down to the nearest five minutes
+    timestamp = now - datetime.timedelta(minutes=now.minute % 5, seconds=now.second, microseconds=now.microsecond)
+    # Format the timestamp as a string
+    date_str = timestamp.strftime('%Y-%m-%d')
+    time_str = timestamp.strftime('%H:%M')
+    return date_str, time_str
+
 def datetime_filename():
     now = datetime.datetime.now()
     now = now.strftime("%Y-%m-%d_%H-%M-%S")

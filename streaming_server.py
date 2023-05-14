@@ -5,6 +5,8 @@ import uuid
 from dotenv import load_dotenv
 import time
 import threading
+import datetime
+import pandas as pd
 
 from flask import Flask, Response, render_template, request, jsonify, session
 from flask_session import Session
@@ -32,11 +34,12 @@ Session(app)
 
 target_height = 720
 compression_quality = 60
-deteciton_buffer = 5
+deteciton_buffer = 30
 motion_threshold = 0.5
+sleep_data_path = "baby_sleep_data.csv"
 
 user_data = {}
-user_data[0] = {"rgb_frame": None, "night_frame": None, "is_baby_moving": False, "baby_in_crib": False}
+user_data[0] = {"rgb_frame": None, "night_frame": None, "is_baby_moving": False, "baby_in_crib": {}}
 user_data[0]['motion_detector'] = BabyMotionDetector(buffer_size=deteciton_buffer, motion_threshold=motion_threshold)
 
 # camear_hardware = "depthai-oak-d"
@@ -76,7 +79,7 @@ def update_frame():
             frame_gray = np.uint8(frame_gamma * 255)
 
             is_baby_moving, frame_gray = user_data[0]['motion_detector'].is_baby_moving(frame_gray)
-            user_data[0]['is_baby_moving'] = is_baby_moving
+            user_data[0]['is_baby_moving'] = 1 if is_baby_moving else 0
             # print(f'is baby moving: {is_baby_moving}')
 
             # add date and time
@@ -85,7 +88,7 @@ def update_frame():
         else:
             user_data[0]['night_frame'] = warning_image
             user_data[0]['rgb_frame'] = warning_image
-            print("No frame received from camera. Trying again...")
+            # print("No frame received from camera. Trying again...")
         
         time.sleep(1 / 10)  # Sleep for a duration corresponding to 10 FPS
 
@@ -96,25 +99,67 @@ def reset_timer(time, flag_key):
 
 def save_and_predict():
     global user_data
+    positive_counter = 0
+    total_counter = 0
 
     while True:
         frame = user_data[0]['night_frame']
         # check if frame is a real image
         if frame is None:
-            time.sleep(5)
+            time.sleep(30)
             continue
 
         filename = "current_frame.jpg"
-        cv2.imwrite(filename, frame)
-        class_name, confidence_score = predict_image(filename)
-        print("Class:", class_name)
-        print("Confidence Score:", confidence_score)
+        try:
+            cv2.imwrite(filename, frame)
+            class_name, confidence_score = predict_image(filename)
+            # print("Class:", class_name, "Confidence Score:", confidence_score)
+        except:
+            class_name = "not_in_crib"
+            confidence_score = 0.0
+
+        # Increase total counter
+        total_counter += 1
+        # If baby is in crib, increase positive counter
+        if class_name == "in_crib":
+            positive_counter += 1
+
+        user_data[0]['baby_in_crib'] = {
+            "class_name": class_name,
+            "confidence_score": float(confidence_score)
+        }
+
+        # If total counter reaches 5 (indicating 5 minutes have passed), record the result for this slot
+        if total_counter == 5:
+            slot_result = 1 if positive_counter >= 3 else 0
+
+            # Prepare data to be stored - in this case, current time, prediction and confidence_score
+            sleep_date, sleep_time = date_time_five_min()
+            data_to_save = {
+                "date": sleep_date,
+                "time": sleep_time,
+                "baby_in_crib": slot_result,
+                "baby_moving": user_data[0]['is_baby_moving']
+            }
+
+            # Convert your data into a DataFrame
+            df = pd.DataFrame([data_to_save])
+
+            # Append the data to your CSV file
+            df.to_csv(sleep_data_path, mode='a', header=False, index=False)
+
+            # Reset counters for the next slot
+            positive_counter = 0
+            total_counter = 0
+
         time.sleep(60)  # sleep for 1 minute
 
 update_thread = threading.Thread(target=update_frame)
+update_thread.daemon = True
 update_thread.start()
 
 predict_thread = threading.Thread(target=save_and_predict)
+predict_thread.daemon = True
 predict_thread.start()
 
 # data collection
@@ -219,6 +264,10 @@ def moving_status():
 
     is_baby_moving = user_data[user_uuid]['is_baby_moving']
     return jsonify(is_moving=is_baby_moving)
+
+@app.route('/in_crib')
+def prediction():
+    return jsonify(user_data[0]['baby_in_crib'])
 
 @app.route('/switch_camera', methods=['POST'])
 @auth.login_required
