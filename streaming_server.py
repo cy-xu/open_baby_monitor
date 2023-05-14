@@ -32,7 +32,7 @@ app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")  # Set this to a secure
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
-target_height = 720
+target_height = 640
 compression_quality = 60
 deteciton_buffer = 30
 motion_threshold = 0.5

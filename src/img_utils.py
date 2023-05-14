@@ -98,8 +98,8 @@ def date_and_time(image):
 
     # Set the font, scale, and color
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 1
-    font_thickness = 2
+    font_scale = 0.5
+    font_thickness = 1
 
     # Calculate the text size and position
     text_size, _ = cv2.getTextSize(date_time_str, font, font_scale, font_thickness)
