@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +8,15 @@
     <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
 
     <div class="container-fluid h-100vh">
         <div class="row max-height-vh-100">
             <div class="col-12 col-md-6 d-flex justify-content-center p-0">
                 <div class="d-flex align-items-center h-100">
-                    <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch" alt="Video Stream">
+                    <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch"
+                        alt="Video Stream">
                 </div>
             </div>
             <div class="col-12 col-md-6 d-flex align-items-center flex-column">
@@ -30,8 +33,10 @@
                 </div>
                 <div class="row text-center mt-md-3 py-md-0 py-3">
                     <div class="col-auto">
-                        <button id="save_positive_sample" type="button" class="btn btn-primary btn-sm">Positive sample (有狗拍照)</button>
-                        <button id="save_negative_sample" type="button" class="btn btn-primary btn-sm">Negative sample (无狗拍照)</button>
+                        <button id="save_positive_sample" type="button" class="btn btn-primary btn-sm">Positive sample
+                            (有狗拍照)</button>
+                        <button id="save_negative_sample" type="button" class="btn btn-primary btn-sm">Negative sample
+                            (无狗拍照)</button>
                     </div>
                 </div>
 
@@ -43,18 +48,18 @@
                     <div id="sleep-grid" class="col-12 mw-100">
                     </div>
                 </div>
+            </div>
         </div>
-    </div>
-    
-    <!-- <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script> -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script> -->
-    <!-- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> -->
-    <!-- <script src="https://d3js.org/d3.v7.min.js"></script> -->
-    <!-- CDN for China access -->
-    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.slim.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/popper.js/2.11.7/cjs/popper.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/js/bootstrap.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/d3/7.8.4/d3.min.js"></script>
+
+        <!-- <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script> -->
+        <!-- <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script> -->
+        <!-- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> -->
+        <!-- <script src="https://d3js.org/d3.v7.min.js"></script> -->
+        <!-- CDN for China access -->
+        <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.slim.min.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/popper.js/2.11.7/cjs/popper.min.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/js/bootstrap.min.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/d3/7.8.4/d3.min.js"></script>
 </body>
 
 <script>
@@ -71,30 +76,30 @@
 
     // long polling, also known as Comet, which involves sending a request to the server and holding the connection open until the server has new data to send back.
     function updateMovingStatus() {
-    fetch('/moving_status')
-        .then(response => response.json())
-        .then(data => {
-            // print the JSON response in the console first
-            // console.log(data);
-            if (data.is_moving) {
-                document.body.style.backgroundColor = 'red';
-            } else {
-                document.body.style.backgroundColor = 'white';
-            }
-            // wait for new data before sending another request
-            setTimeout(updateMovingStatus, 5000);
-        })
-        .catch(error => {
-            console.error('Error fetching moving status:', error);
-            // wait before retrying
-            setTimeout(updateMovingStatus, 5000);
-        });
+        fetch('/moving_status')
+            .then(response => response.json())
+            .then(data => {
+                // print the JSON response in the console first
+                // console.log(data);
+                if (data.is_moving) {
+                    document.body.style.backgroundColor = 'red';
+                } else {
+                    document.body.style.backgroundColor = 'white';
+                }
+                // wait for new data before sending another request
+                setTimeout(updateMovingStatus, 5000);
+            })
+            .catch(error => {
+                console.error('Error fetching moving status:', error);
+                // wait before retrying
+                setTimeout(updateMovingStatus, 5000);
+            });
     }
 
     const baby_in_crib_model_URL = "https://teachablemachine.withgoogle.com/models/ymtMcf5bM/";
     // Class 0 = Baby in crib
     // Class 1 = Baby not in crib
-    
+
     async function in_crib_status() {
         const res = await fetch('/in_crib');
         const prediction = await res.json();
@@ -115,29 +120,24 @@
         setTimeout(in_crib_status, 60000);
     }
 
+    // Your colors for the status
+    const statusColors = ['#f8f9fa', '#f7d6e6', '#a6e9d5', '#f1aeb5'];
+
     function drawSleepGrid(data) {
-        // Get the width of the sleep-grid-row div
-        const rowWidth = document.getElementById('sleep-grid').offsetWidth;
-        console.log('rowWidth', rowWidth);
-
-        // Define the dimensions of the grid
-        //The divisor (24 hours * 12) splits a day into 5 minutes cells, control the width of each cell
-        const gridWidth = Math.floor(rowWidth / 24 * 12); 
-        const gridHeight = 5 * gridWidth;
-
-        // Define the dimensions of the SVG container
-        const width = rowWidth;
-        const height = 400;
-
-        // Define the colors for sleep and awake states
-        const sleepColor = '#79A9D1';
-        const awakeColor = '#7d8ca3';
+        const gridWidth = 288; // Each day is divided into 288 slots
+        const gridHeight = 7; // 7 days
+        const margin = { top: 20, right: 30, bottom: 30, left: 30 };
+        const labelPadding = 20; // Extra padding for labels
+        const width = document.getElementById('sleep-grid').offsetWidth - margin.left - margin.right - 2 * labelPadding;
+        const height = 20 * gridHeight; // Each row is 20px high. Adjust this as needed
 
         // Create the SVG container
         const svg = d3.select('#sleep-grid')
             .append('svg')
-            .attr('width', width)
-            .attr('height', height);
+            .attr('width', width + margin.left + margin.right + 2 * labelPadding)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g')
+            .attr('transform', `translate(${margin.left + labelPadding},${margin.top})`);
 
         // Create the sleep grid
         svg.selectAll('rect')
@@ -147,25 +147,38 @@
             .attr('y', (d, i) => Math.floor(i / gridWidth) * (height / gridHeight))
             .attr('width', width / gridWidth)
             .attr('height', height / gridHeight)
-            .attr('fill', d => d ? sleepColor : awakeColor);
+            .attr('fill', d => statusColors[d + 1]); // Adjust for -1 index
+
+        // Create hour labels
+        const hours = ["0 AM", "6 AM", "12 PM", "6 PM", "12 AM"];
+        svg.selectAll('g.hour-label')
+            .data(hours)
+            .join('g')
+            .attr('class', 'hour-label')
+            .attr('transform', (d, i) => `translate(${i * (width / 4)}, ${height + margin.bottom / 2})`) // Position each label, adjust the position based on the increased bottom margin
+            .append('text')
+            .text(d => d)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '10px');
     }
 
-    // Example data (replace with your actual data)
-    const exampleData = Array(400).fill().map((_, i) => i % 2);
 
-
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
 
         updateMovingStatus();
 
         in_crib_status();
 
-        document.getElementById('day_cam').addEventListener('click', function() { switchCamera("day_cam"); });
-        document.getElementById('night_cam').addEventListener('click', function() { switchCamera("night_cam"); });
-        document.getElementById('toggle_flash').addEventListener('click', function() { switchCamera("toggle_flash"); });
-        document.getElementById('save_positive_sample').addEventListener('click', function() { switchCamera("save_positive_sample"); });
-        document.getElementById('save_negative_sample').addEventListener('click', function() { switchCamera("save_negative_sample"); });
+        document.getElementById('day_cam').addEventListener('click', function () { switchCamera("day_cam"); });
+        document.getElementById('night_cam').addEventListener('click', function () { switchCamera("night_cam"); });
+        document.getElementById('toggle_flash').addEventListener('click', function () { switchCamera("toggle_flash"); });
+        document.getElementById('save_positive_sample').addEventListener('click', function () { switchCamera("save_positive_sample"); });
+        document.getElementById('save_negative_sample').addEventListener('click', function () { switchCamera("save_negative_sample"); });
 
+        // Fetch the sleep data from the server and draw the grid
+        fetch('/sleep_grid')
+            .then(response => response.json())
+            .then(drawSleepGrid);
     });
 
     // Add the window.onload event listener
@@ -184,6 +197,11 @@
 
     .max-height-vh-100 {
         max-height: 100vh;
+    }
+
+    #sleep-grid {
+        min-width: 300px;
+        max-width: 100%;
     }
 </style>
 

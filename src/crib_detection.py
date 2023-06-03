@@ -38,13 +38,13 @@ def predict_image(image_path):
     data[0] = normalized_image_array
 
     # Set the tensor to point to the input data to be inferred
-    interpreter.set_tensor(input_details[0]['index'], data)
+    interpreter.set_tensor(input_details[0]["index"], data)
 
     # Run the inference
     interpreter.invoke()
 
     # Retrieve the output from the inference
-    output_data = interpreter.get_tensor(output_details[0]['index'])
+    output_data = interpreter.get_tensor(output_details[0]["index"])
 
     # Get the index of the highest confidence score
     index = np.argmax(output_data)
