@@ -47,9 +47,12 @@ def get_sleep_data():
         else:
             sleep_data[day_offset][slot] = 0
 
-    # return the sleep data array
-    sleep_data = np.array(sleep_data).flatten().tolist()
-    return sleep_data
+    # extract the 7 dates as string, convert to short form like Mar.1
+    dates = [
+        (six_days_ago + datetime.timedelta(days=i)).strftime("%b.%d") for i in range(7)
+    ]
+    # return the dates and the sleep data as a format ready for jasonify later
+    return {"dates": dates, "sleep_data": sleep_data}
 
 
 if __name__ == "__main__":

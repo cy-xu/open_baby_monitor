@@ -302,8 +302,9 @@ def prediction():
 @app.route("/sleep_grid")
 def drawSleepGrid():
     # get the past week's sleep data
-    sleep_list = get_sleep_data()
-    return jsonify(sleep_list)
+    sleep_dict = get_sleep_data()
+    # sleep_dict is {"dates": dates, "sleep_data": sleep_data}
+    return jsonify(sleep_dict)
 
 
 @app.route("/switch_camera", methods=["POST"])

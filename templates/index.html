@@ -13,14 +13,18 @@
 
     <div class="container-fluid h-100vh">
         <div class="row max-height-vh-100">
-            <div class="col-12 col-md-6 d-flex justify-content-center p-0">
+            <div id="video_col" class="col-12 col-md-6 d-flex justify-content-center p-0">
                 <div class="d-flex align-items-center h-100">
                     <img id="video" src="{{ url_for('video_feed') }}" class="img-fluid video-stretch"
                         alt="Video Stream">
                 </div>
             </div>
-            <div class="col-12 col-md-6 d-flex align-items-center flex-column">
-                <div class="row text-center mt-md-3 py-md-0 py-3">
+            <div id="data_col" style="overflow-x: auto;" class="col-12 col-md-6 d-flex align-items-center flex-column">
+                <div class="row mx-auto py-1">
+                    <div id="sleep-tooltip" style="padding-bottom: 20px;"></div>
+                    <div id="sleep-grid"></div>
+                </div>
+                <div class="row mx-auto py-1">
                     <div class="col-auto">
                         <button id="day_cam" type="button" class="btn btn-primary btn-sm">Day (白天)</button>
                     </div>
@@ -31,7 +35,8 @@
                         <button id="toggle_flash" type="button" class="btn btn-primary btn-sm">Light (开关灯)</button>
                     </div>
                 </div>
-                <div class="row text-center mt-md-3 py-md-0 py-3">
+                <!-- <div class="row text-center mt-md-3 py-md-0 py-3"> -->
+                <div class="row mx-auto py-1">
                     <div class="col-auto">
                         <button id="save_positive_sample" type="button" class="btn btn-primary btn-sm">Positive sample
                             (有狗拍照)</button>
@@ -39,15 +44,10 @@
                             (无狗拍照)</button>
                     </div>
                 </div>
-
-                <div class="row text-center mt-md-3 py-md-0 py-3" id="label-container">
+                <div class="row mx-auto py-1" id="label-container">
                     <div id="prediction-alert" class="alert" role="alert" style="display:none;"></div>
                 </div>
 
-                <div class="row text-center">
-                    <div id="sleep-grid" class="col-12 mw-100">
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -122,44 +122,78 @@
 
     // Your colors for the status
     const statusColors = ['#f8f9fa', '#f7d6e6', '#a6e9d5', '#f1aeb5'];
+    let tooltip = d3.select("#data_col").append("div").attr("class", "tooltip").style("opacity", 0);
 
     function drawSleepGrid(data) {
         const gridWidth = 288; // Each day is divided into 288 slots
         const gridHeight = 7; // 7 days
-        const margin = { top: 20, right: 30, bottom: 30, left: 30 };
-        const labelPadding = 20; // Extra padding for labels
-        const width = document.getElementById('sleep-grid').offsetWidth - margin.left - margin.right - 2 * labelPadding;
+        const margin = { top: 40, right: 30, bottom: 30, left: 60 }; // Increased top margin to accommodate hour labels
+        const width = document.getElementById('data_col').clientWidth - margin.left - margin.right;
         const height = 20 * gridHeight; // Each row is 20px high. Adjust this as needed
+        const statuses = ["No data (没数据)", "Not in crib (没在床里)", "Sleeping (在睡觉)", "Fuzzy (在折腾)"];
+        const hour_padding = 6;
+        const hours = ["0 AM", "6 AM", "12 PM", "6 PM", "12 AM"];
 
         // Create the SVG container
         const svg = d3.select('#sleep-grid')
             .append('svg')
-            .attr('width', width + margin.left + margin.right + 2 * labelPadding)
+            // .attr('width', width + margin.left + margin.right)
+            .attr('width', width)
             .attr('height', height + margin.top + margin.bottom)
             .append('g')
-            .attr('transform', `translate(${margin.left + labelPadding},${margin.top})`);
+            .attr('transform', `translate(${margin.left},${margin.top})`);
 
         // Create the sleep grid
-        svg.selectAll('rect')
-            .data(data)
-            .join('rect')
-            .attr('x', (d, i) => (i % gridWidth) * (width / gridWidth))
-            .attr('y', (d, i) => Math.floor(i / gridWidth) * (height / gridHeight))
-            .attr('width', width / gridWidth)
-            .attr('height', height / gridHeight)
-            .attr('fill', d => statusColors[d + 1]); // Adjust for -1 index
+        data.sleep_data.forEach((row, rowIndex) => {
+            svg.selectAll('rect.day' + rowIndex) // append unique class for each day
+                .data(row)
+                .join('rect')
+                .attr('class', 'day' + rowIndex) // append unique class for each day
+                .attr('x', (d, i) => (i % gridWidth) * (width / gridWidth))
+                .attr('y', () => Math.floor(rowIndex) * (height / gridHeight))
+                .attr('width', width / gridWidth)
+                .attr('height', height / gridHeight)
+                .attr('fill', d => statusColors[d + 1]) // Adjust for -1 index
+                .on('mouseover', function (event, d, i) {
+                    const [x, y] = d3.pointer(event);
+                    const status = statuses[d + 1];
+
+                    tooltip.transition()
+                        .duration(200)
+                        .style('opacity', 0.9);
+                    tooltip.html(`${status}`)
+                        .style('left', (event.pageX + 10) + "px")
+                        .style('top', (event.pageY - 40) + "px")
+                        .style('display', 'block');
+                })
+                .on('mouseout', function (d) {
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+        });
+
+
+        // Create date labels
+        svg.selectAll('.dateLabel')
+            .data(data.dates)
+            .enter().append('text')
+            .text((d) => d)
+            .attr('x', -margin.left)
+            .attr('y', (d, i) => i * (height / gridHeight) + hour_padding)
+            // .attr('transform', 'translate(0,' + height / gridHeight / 1.5 + ')')
+            .attr('class', 'dateLabel mono axis');
 
         // Create hour labels
-        const hours = ["0 AM", "6 AM", "12 PM", "6 PM", "12 AM"];
-        svg.selectAll('g.hour-label')
+        svg.selectAll('.hourLabel')
             .data(hours)
-            .join('g')
-            .attr('class', 'hour-label')
-            .attr('transform', (d, i) => `translate(${i * (width / 4)}, ${height + margin.bottom / 2})`) // Position each label, adjust the position based on the increased bottom margin
-            .append('text')
-            .text(d => d)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', '10px');
+            .enter().append('text')
+            .text((d) => d)
+            .attr('x', (d, i) => i * (width / hours.length))
+            .attr('y', 0)
+            .style('text-anchor', 'middle')
+            .attr('transform', 'translate(0,' - hour_padding + ')')
+            .attr('class', 'hourLabel mono axis');
     }
 
 
@@ -199,9 +233,18 @@
         max-height: 100vh;
     }
 
-    #sleep-grid {
-        min-width: 300px;
-        max-width: 100%;
+    /* Tooltip style */
+    .tooltip {
+        position: absolute;
+        text-align: center;
+        width: auto;
+        height: auto;
+        padding: 5px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
     }
 </style>
 
