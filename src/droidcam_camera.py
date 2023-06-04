@@ -8,10 +8,12 @@ import urllib.request as urlreq
 
 from . import model_prep, resize_n_rotate
 
+
 class PeekableQueue(queue.Queue):
     def peek(self):
         with self.mutex:
             return self.queue[0]
+
 
 class DroidCam:
     def __init__(self, camera_ip, buffer_size=1, target_height=720):
@@ -23,18 +25,20 @@ class DroidCam:
         self.auto_focus = 0
         self.flash_on = 0
         self.reconnect_limit = 100
+        self.super_low_light = True
 
+        self.fps = 2 if self.super_low_light else 10
         self.jpeg_mode = True
         # self.jpeg_mode = False
 
         self.pos_dir, self.neg_dir = model_prep()
 
         # Set the camera resolution
-        SIZE320x240 = '/video?320X240'
-        SIZE640x480 = '/video?640X480'  # Default
-        SIZE960x720 = '/video?960X720'
-        SIZE_video = '/video'
-        SIZE_empty = '/mjpegfeed?640x480'
+        SIZE320x240 = "/video?320X240"
+        SIZE640x480 = "/video?640X480"  # Default
+        SIZE960x720 = "/video?960X720"
+        SIZE_video = "/video"
+        SIZE_empty = "/mjpegfeed?640x480"
 
         if self.jpeg_mode:
             # read from a still jpeg the camera server provides
@@ -63,7 +67,6 @@ class DroidCam:
         # time.sleep(1)
 
     def request_latest_frame(self):
-
         if self.jpeg_mode:
             imgResp = urlreq.urlopen(self.camera_source)
 
@@ -87,26 +90,26 @@ class DroidCam:
             return None
 
     def autoFocus(self):
-        autoFocus = self.camera_ip + '/cam/1/af'   # Execute Auto-Focus
+        autoFocus = self.camera_ip + "/cam/1/af"  # Execute Auto-Focus
         self.auto_focus = 1
         return self.cmdSender(autoFocus)
 
     def toggleFlash(self):
         if self.flash_on == 0:
-            toggleFlash = self.camera_ip + '/enabletorch'
+            toggleFlash = self.camera_ip + "/enabletorch"
             self.flash_on = 1
 
             # after 10 seconds, call toggleFlash again to turn off the light
             timer = threading.Timer(10.0, self.toggleFlash)
             timer.start()
         else:
-            toggleFlash = self.camera_ip + '/disabletorch'
+            toggleFlash = self.camera_ip + "/disabletorch"
             self.flash_on = 0
         return self.cmdSender(toggleFlash)
 
     def _frame_reader(self):
         while True:
-        # while self.cap.isOpened():
+            # while self.cap.isOpened():
 
             # empty queue first
             # if self.frame_queue.full():
@@ -120,7 +123,9 @@ class DroidCam:
                 self.frame_raw = None
 
             if self.frame_raw is not None:
-                self.frame = resize_n_rotate(self.frame_raw, target_height=self.target_height)
+                self.frame = resize_n_rotate(
+                    self.frame_raw, target_height=self.target_height
+                )
                 # self.frame_queue.put(frame)
             else:
                 self.reconnect_limit -= 1
@@ -128,26 +133,28 @@ class DroidCam:
             # Wait for the frame reader thread to read at least one frame
             if self.reconnect_limit == 0:
                 # re-establish the connection
-                print(f'reconnecting to {self.camera_ip}...')
+                print(f"reconnecting to {self.camera_ip}...")
                 self.cap.release()
                 self.cap = cv2.VideoCapture(self.camera_ip)
                 self.ret, self.frame = self.cap.read()
-        
+
                 if self.ret:
-                    print(f'Connected to {self.camera_ip}')
+                    print(f"Connected to {self.camera_ip}")
                     self.reconnect_limit = 100
                 else:
-                    print(f'Failed to connect to {self.camera_ip}. Retrying in 5 seconds...')
+                    print(
+                        f"Failed to connect to {self.camera_ip}. Retrying in 5 seconds..."
+                    )
                     time.sleep(5)  # Wait before retrying
 
                 # self.frame = None
 
             # lower frame rate to lower CPU usage
-            time.sleep(1/10)
+            time.sleep(1 / self.fps)
 
     @staticmethod
     def cmdSender(cmd):
-        ret = ''
+        ret = ""
         try:
             fp = urlreq.urlopen(cmd)
             ret = fp.read().decode("utf8")
@@ -164,4 +171,3 @@ class DroidCam:
             return None
         else:
             return self.frame.copy()
-

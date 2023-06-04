@@ -34,9 +34,10 @@ app.config["SECRET_KEY"] = os.getenv(
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
+fps = 2
 target_height = 640
 compression_quality = 60
-deteciton_buffer = 30
+deteciton_buffer = 10
 motion_threshold = 0.5
 sleep_data_path = "baby_sleep_data.csv"
 
@@ -92,7 +93,7 @@ def update_frame():
                 frame_gray
             )
             user_data[0]["is_baby_moving"] = 1 if is_baby_moving else 0
-            # print(f'is baby moving: {is_baby_moving}')
+            # print(f"is baby moving: {is_baby_moving}")
 
             # add date and time
             user_data[0]["night_frame"] = date_and_time(frame_gray)
@@ -102,7 +103,7 @@ def update_frame():
             user_data[0]["rgb_frame"] = warning_image
             # print("No frame received from camera. Trying again...")
 
-        time.sleep(1 / 10)  # Sleep for a duration corresponding to 10 FPS
+        time.sleep(1 / fps)  # Sleep for a duration of 1/fps
 
 
 def reset_timer(time, flag_key):
@@ -114,6 +115,7 @@ def reset_timer(time, flag_key):
 def save_and_predict():
     global user_data
     positive_counter = 0
+    moving_counter = 0
     total_counter = 0
 
     while True:
@@ -134,6 +136,7 @@ def save_and_predict():
 
         # Increase total counter
         total_counter += 1
+        moving_counter += user_data[0]["is_baby_moving"]
         # If baby is in crib, increase positive counter
         if class_name == "in_crib":
             positive_counter += 1
@@ -147,6 +150,7 @@ def save_and_predict():
         # record the result for this five-minute slot
         if total_counter == 5:
             slot_result = 1 if positive_counter >= 3 else 0
+            moving_result = 1 if moving_counter >= 3 else 0
 
             # Prepare data to be stored - in this case, current time, prediction and confidence_score
             sleep_date, sleep_time = date_time_five_min()
@@ -154,7 +158,7 @@ def save_and_predict():
                 "date": sleep_date,
                 "time": sleep_time,
                 "baby_in_crib": slot_result,
-                "baby_moving": user_data[0]["is_baby_moving"],
+                "baby_moving": moving_counter,
             }
 
             # Convert your data into a DataFrame
@@ -166,6 +170,7 @@ def save_and_predict():
             # Reset counters for the next slot
             positive_counter = 0
             total_counter = 0
+            moving_counter = 0
 
         time.sleep(60)  # sleep for 1 minute
 
@@ -290,7 +295,7 @@ def moving_status():
     if user_uuid not in user_data:
         user_uuid = set_user_uuid()
 
-    is_baby_moving = user_data[user_uuid]["is_baby_moving"]
+    is_baby_moving = user_data[0]["is_baby_moving"]
     return jsonify(is_moving=is_baby_moving)
 
 
