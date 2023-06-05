@@ -1,18 +1,25 @@
 # Open Baby Monitor
 
-An open-source baby monitor that uses ~~a stereo camera~~ an Android phone to provide a live video feed of the baby's crib, so I can keep an eye on the little thing while working. I also want to track the baby's sleep and send out alerts if necessary.
+My passion project as a new parent! Rather than buying more gear, why not repurpose old tech into a baby monitor that fits my needs? Here's the scoop:
 
-Goals:
+- Web Access: Keep an eye on her crib from anywhere, on any device.  
+- Sleep Tracker: A deep-learning model checks whether she is in the crib and tracks her sleep quality.  
+- Camera Control: Swap video feeds for different lighting conditions, or even flash on some light.  
+- Secure: Password-protected.  
+- Wallet-friendly: All you need is an old Android phone and a computer.
+
+<img src="assets/interface_demo.jpg" alt="web interface" width="500px">
+
+### Goals:
  - [x] A password protected live video feed of the baby's crib
  - [x] Detects the baby's movement using temporal information
  - [x] Simple camera control, like auto-focus, toggle flashlight, save image.
  - [x] Detects if the baby is in the crib
- - [ ] Automatically logs her sleep duration and quality
+ - [x] Automatically logs her sleep duration and quality
  - [ ] Detects if the baby's airway is obstructed (face down or covered)
  - [ ] Tracks the room temperature and humidity, so I can analyze any correlation with the baby's sleep quality
  - [ ] ~~Detects the baby's movement using depth information~~
 
-<img src="assets/interface_demo.jpg" alt="web interface" width="500px">
 
 ## Setup
 
@@ -48,13 +55,14 @@ python streaming_server.py
  - [DepthAI to support the OAK-D stereo camera](https://docs.luxonis.com/en/latest/pages/tutorials/first_steps/#first-steps-with-depthai)
  - [DroidCam controls](https://github.com/AiueoABC/Play_with_DroidCam/blob/master/capture.py)
  - [IP Webcam control](https://community.home-assistant.io/t/android-ip-webcam-as-a-camera-plus-sensors/10566)
+ - [A small arm I used to mount the phone to the crib (Amazon)](https://www.amazon.com/gp/product/B089FWTFNX/ref=ppx_yo_dt_b_asin_title_o08_s00?ie=UTF8&psc=1)
 
 ### License
 
 
 ### Notes:
 
- - The OAK-D stereo camera is nice to have, but my old Pixel 2 phone provides much better low-light performance, so I switched to using the phone as the camera.
+ - The OAK-D stereo camera is nice to have, but the depth info is too noisy in the dark. My old Pixel 2, on the other hand, provides a much better low-light performance, so I switched.
 
  - user name and pin are saved in the environment variables (.env), add this file to .gitignore to avoid saving sensitive information in the code repository
 
