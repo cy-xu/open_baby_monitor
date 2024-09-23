@@ -8,6 +8,8 @@ My passion project as a new parent! Rather than buying more gear, why not repurp
 - Secure: Password-protected.  
 - Wallet-friendly: All you need is an old Android phone and a computer.
 
+[Demo video](https://www.youtube.com/watch?v=y23ytcYdjw0&ab_channel=CYXu)
+
 <img src="assets/interface_demo.jpg" alt="web interface" width="500px">
 
 ### Goals:
